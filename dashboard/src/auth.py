@@ -95,7 +95,16 @@ def _simple_auth(t):
                 local_storage.setItem('auth_session_id', session_id)
                 auth_logger.debug(f"localStorage auth_session_id défini avec session_id: {session_id}")
 
-                st.rerun()
+                # Utiliser une redirection HTML au lieu de st.rerun() pour laisser le temps à localStorage
+                st.markdown(
+                    """
+                    <meta http-equiv="refresh" content="0; url=/">
+                    <script>window.location.href = "/";</script>
+                    """,
+                    unsafe_allow_html=True
+                )
+                st.success(f"✅ Connexion réussie ! Redirection...")
+                st.stop()
             else:
                 auth_logger.warning("Simple password login FAILED - incorrect password")
                 st.error(t('incorrect_password'))
@@ -220,9 +229,19 @@ def _oidc_auth(t):
 
                     auth_logger.info(f"OIDC login SUCCESS - email: {user_email}")
 
-                    # Nettoyer les query params et rediriger
+                    # Nettoyer les query params pour éviter de réutiliser le code
                     st.query_params.clear()
-                    st.rerun()
+
+                    # Utiliser une redirection HTML au lieu de st.rerun() pour laisser le temps à localStorage
+                    st.markdown(
+                        f"""
+                        <meta http-equiv="refresh" content="0; url={redirect_uri}">
+                        <script>window.location.href = "{redirect_uri}";</script>
+                        """,
+                        unsafe_allow_html=True
+                    )
+                    st.success(f"✅ Connexion réussie ! Redirection...")
+                    st.stop()
                 else:
                     st.error(f"Failed to fetch user info: {userinfo_response.status_code}")
                     st.stop()
@@ -423,7 +442,17 @@ def _oauth_auth(provider: str, t):
         # Sauvegarder le résultat OAuth complet pour persistance
         st.session_state[f"{provider}_oauth_result"] = result
 
-        st.rerun()
+        # Utiliser une redirection HTML au lieu de st.rerun() pour laisser le temps à localStorage
+        redirect_uri = config.get("redirect_uri", "http://localhost:8501/")
+        st.markdown(
+            f"""
+            <meta http-equiv="refresh" content="0; url={redirect_uri}">
+            <script>window.location.href = "{redirect_uri}";</script>
+            """,
+            unsafe_allow_html=True
+        )
+        st.success(f"✅ Connexion réussie ! Redirection...")
+        st.stop()
 
     return False
 
