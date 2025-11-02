@@ -96,7 +96,7 @@ async def search(
             return [], False, 0.0
         s = time.time()
         res, hit = await cse_client.search(query=q, lang=lang.value, num_results=min(limit, 10))
-        if embedding_provider:
+        if embedding_provider and use_reranking and RERANKING_ENABLED:
             await _embed_results(embedding_provider, res)
         return res, hit, (time.time() - s) * 1000
 
@@ -124,12 +124,12 @@ async def search(
             all_wiki_results.extend(results)
 
         # Embed results if provider is available
-        if embedding_provider and all_wiki_results:
+        if embedding_provider and all_wiki_results and use_reranking and RERANKING_ENABLED:
             await _embed_results(embedding_provider, all_wiki_results)
 
         return all_wiki_results, (time.time() - s) * 1000
 
-    query_embedding_task = asyncio.to_thread(embedding_provider.encode, [q]) if RERANKING_ENABLED and embedding_provider else None
+    query_embedding_task = asyncio.to_thread(embedding_provider.encode, [q]) if RERANKING_ENABLED and embedding_provider and use_reranking else None
 
     (meili_res, meili_time), (cse_res, cache_hit, cse_time), (wiki_res, wiki_time), query_emb_list = await asyncio.gather(
         search_meilisearch(), search_cse(), search_wiki(), query_embedding_task or asyncio.sleep(0, result=[None])

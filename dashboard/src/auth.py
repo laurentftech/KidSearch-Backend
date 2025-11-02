@@ -73,7 +73,7 @@ def _simple_auth(t):
 
         if submit:
             if password == dashboard_password:
-                auth_logger.info("Simple password login SUCCESS")
+                auth_logger.info("Password login SUCCESS")
 
                 # Créer une session persistante
                 session_manager = get_session_manager()
@@ -81,227 +81,36 @@ def _simple_auth(t):
                 session_id = session_manager.create_session(
                     email="",
                     user_info=user_info,
-                    auth_method="password"
+                    auth_method=AuthProvider.SIMPLE.value
                 )
 
                 # Sauvegarder dans la session Streamlit
                 st.session_state.authenticated = True
-                st.session_state.auth_method = "password"
+                st.session_state.auth_method = AuthProvider.SIMPLE.value
                 st.session_state.user_info = user_info
                 st.session_state.persistent_session_id = session_id
 
                 # Sauvegarder le session_id dans localStorage
                 local_storage = get_local_storage()
                 local_storage.setItem('auth_session_id', session_id)
-                auth_logger.debug(f"localStorage auth_session_id défini avec session_id: {session_id}")
+                auth_logger.debug(f"localStorage 'auth_session_id' set with session_id: {session_id}")
 
-                # Utiliser une redirection HTML au lieu de st.rerun() pour laisser le temps à localStorage
-                st.markdown(
-                    """
-                    <meta http-equiv="refresh" content="0; url=/">
-                    <script>window.location.href = "/";</script>
-                    """,
-                    unsafe_allow_html=True
-                )
-                st.success(f"✅ Connexion réussie ! Redirection...")
-                st.stop()
+                st.success(f"✅ {t('login_success_redirect')}")
+                st.rerun()
             else:
-                auth_logger.warning("Simple password login FAILED - incorrect password")
+                auth_logger.warning("Password login FAILED - incorrect password")
                 st.error(t('incorrect_password'))
 
     st.stop()
 
 
-def _oidc_auth(t):
+def _sso_auth(provider: str, t):
     """
-    Authentification via OpenID Connect (OIDC) générique.
-    Compatible avec Pocket ID, Authentik, Keycloak, et tout provider OIDC standard.
+    Unified authentication for all SSO providers (OIDC, Google, GitHub).
 
     Args:
-        t: Traducteur pour les messages
-    """
-    auth_config = get_auth_config()
-    config = auth_config.get_oidc_config()
-
-    if not config:
-        st.error("OIDC authentication is not configured.")
-        st.info("Please set OIDC_ISSUER, OIDC_CLIENT_ID, and OIDC_CLIENT_SECRET in your .env file.")
-        st.stop()
-
-    # Si discovery_url est fourni, récupérer les endpoints automatiquement
-    if config.get("discovery_url") and not config.get("authorize_url"):
-        try:
-            import requests
-            discovery_response = requests.get(config["discovery_url"], timeout=5)
-            if discovery_response.status_code == 200:
-                discovery_data = discovery_response.json()
-                config["authorize_url"] = discovery_data.get("authorization_endpoint", "")
-                config["token_url"] = discovery_data.get("token_endpoint", "")
-                config["userinfo_url"] = discovery_data.get("userinfo_endpoint", "")
-                auth_logger.debug(f"OIDC endpoints discovered from {config['discovery_url']}")
-            else:
-                st.error(f"Failed to fetch OIDC discovery document: {discovery_response.status_code}")
-                st.stop()
-        except Exception as e:
-            st.error(f"Error during OIDC discovery: {str(e)}")
-            st.info("You can manually set OIDC_AUTHORIZE_URL, OIDC_TOKEN_URL, and OIDC_USERINFO_URL in your .env file.")
-            st.stop()
-
-    # Gérer le callback OAuth
-    query_params = st.query_params
-
-    if "code" in query_params:
-        # Étape 2: Échanger le code contre un token
-        code = query_params["code"]
-
-        try:
-            import requests
-
-            # Préparer la redirection URI
-            redirect_uri = config.get("redirect_uri", st.session_state.get("redirect_uri", "http://localhost:8501/"))
-
-            # Échanger le code contre un token
-            token_response = requests.post(
-                config["token_url"],
-                data={
-                    "grant_type": "authorization_code",
-                    "code": code,
-                    "redirect_uri": redirect_uri,
-                    "client_id": config["client_id"],
-                    "client_secret": config["client_secret"],
-                },
-                headers={"Content-Type": "application/x-www-form-urlencoded"}
-            )
-
-            if token_response.status_code == 200:
-                token_data = token_response.json()
-                access_token = token_data.get("access_token")
-                id_token = token_data.get("id_token")
-
-                # Récupérer les informations utilisateur
-                userinfo_response = requests.get(
-                    config["userinfo_url"],
-                    headers={"Authorization": f"Bearer {access_token}"}
-                )
-
-                if userinfo_response.status_code == 200:
-                    user_info = userinfo_response.json()
-                    user_email = user_info.get("email", "")
-
-                    auth_logger.info(f"OIDC login attempt - email: {user_email}")
-
-                    # Vérifier si l'email est autorisé
-                    if not auth_config.is_email_allowed(user_email):
-                        auth_logger.warning(f"OIDC access DENIED - email: {user_email} - not in ALLOWED_EMAILS")
-                        st.error(f"🚫 {t('access_denied')}")
-                        st.warning(f"{t('email_not_authorized')}: {user_email}")
-                        st.info(t('contact_admin'))
-                        st.stop()
-
-                    # Préparer les informations utilisateur
-                    user_data = {
-                        "name": user_info.get("name", user_info.get("preferred_username", "User")),
-                        "email": user_email,
-                        "sub": user_info.get("sub", ""),
-                    }
-
-                    # Créer une session persistante
-                    session_manager = get_session_manager()
-                    session_id = session_manager.create_session(
-                        email=user_email,
-                        user_info=user_data,
-                        auth_method="oidc",
-                        token={"access_token": access_token, "id_token": id_token}
-                    )
-
-                    # Sauvegarder dans la session
-                    st.session_state.authenticated = True
-                    st.session_state.auth_method = "oidc"
-                    st.session_state.oauth_token = access_token
-                    st.session_state.id_token = id_token
-                    st.session_state.user_info = user_data
-                    st.session_state.persistent_session_id = session_id
-
-                    # Sauvegarder le session_id dans localStorage
-                    local_storage = get_local_storage()
-                    local_storage.setItem('auth_session_id', session_id)
-                    auth_logger.debug(f"localStorage auth_session_id défini avec session_id: {session_id}")
-
-                    auth_logger.info(f"OIDC login SUCCESS - email: {user_email}")
-
-                    # Nettoyer les query params pour éviter de réutiliser le code
-                    st.query_params.clear()
-
-                    # Utiliser une redirection HTML au lieu de st.rerun() pour laisser le temps à localStorage
-                    st.markdown(
-                        f"""
-                        <meta http-equiv="refresh" content="0; url={redirect_uri}">
-                        <script>window.location.href = "{redirect_uri}";</script>
-                        """,
-                        unsafe_allow_html=True
-                    )
-                    st.success(f"✅ Connexion réussie ! Redirection...")
-                    st.stop()
-                else:
-                    st.error(f"Failed to fetch user info: {userinfo_response.status_code}")
-                    st.stop()
-            else:
-                st.error(f"Failed to exchange code for token: {token_response.status_code}")
-                st.json(token_response.json())
-                st.stop()
-
-        except Exception as e:
-            st.error(f"Authentication error: {str(e)}")
-            st.stop()
-
-    # Étape 1: Afficher le bouton de connexion
-    st.title(f"🔒 {t('auth_required')}")
-    st.markdown(t('please_log_in'))
-
-    redirect_uri = config.get("redirect_uri", "http://localhost:8501/")
-    st.session_state.redirect_uri = redirect_uri
-
-    # Construire l'URL d'autorisation
-    auth_params = {
-        "client_id": config["client_id"],
-        "redirect_uri": redirect_uri,
-        "response_type": "code",
-        "scope": " ".join(config["scopes"]),
-    }
-
-    auth_url = f"{config['authorize_url']}?{urlencode(auth_params)}"
-
-    # Afficher le bouton de connexion
-    st.markdown(
-        f"""
-        <a href="{auth_url}" target="_self">
-            <button style="
-                background-color: #4f46e5;
-                color: white;
-                padding: 12px 24px;
-                border: none;
-                border-radius: 4px;
-                font-size: 16px;
-                cursor: pointer;
-                width: 100%;
-            ">
-                🔐 Login with OIDC
-            </button>
-        </a>
-        """,
-        unsafe_allow_html=True
-    )
-
-    st.stop()
-
-
-def _oauth_auth(provider: str, t):
-    """
-    Authentification OAuth2 (Google ou Github) - version existante conservée.
-
-    Args:
-        provider: "google" ou "github"
-        t: Traducteur pour les messages
+        provider: "oidc", "google", or "github"
+        t: Translator for messages
     """
     try:
         from streamlit_oauth import OAuth2Component
@@ -311,51 +120,71 @@ def _oauth_auth(provider: str, t):
 
     auth_config = get_auth_config()
 
-    # Configuration selon le provider
-    if provider == "google":
+    # --- 1. Provider-specific configuration ---
+    if provider == "oidc":
+        config = auth_config.get_oidc_config()
+        button_text = t('login_with_oidc')
+        icon = None
+        scope = " ".join(config.get("scopes", ["openid", "profile", "email"])) if config else ""
+        # Discover endpoints if not manually set
+        if config and config.get("discovery_url") and not config.get("authorize_url"):
+            try:
+                discovery_response = requests.get(config["discovery_url"], timeout=5)
+                discovery_response.raise_for_status()
+                discovery_data = discovery_response.json()
+                config["authorize_url"] = discovery_data.get("authorization_endpoint", "")
+                config["token_url"] = discovery_data.get("token_endpoint", "")
+                config["userinfo_url"] = discovery_data.get("userinfo_endpoint", "")
+                auth_logger.debug(f"OIDC endpoints discovered from {config['discovery_url']}")
+            except Exception as e:
+                st.error(t('oidc_discovery_error', error=str(e)))
+                st.info(t('oidc_manual_config_help'))
+                st.stop()
+    elif provider == "google":
         config = auth_config.get_google_config()
         button_text = t('login_with_google')
         icon = "https://www.google.com/favicon.ico"
         scope = "openid profile email"
-    else:  # github
+    elif provider == "github":
         config = auth_config.get_github_config()
         button_text = t('login_with_github')
         icon = "https://github.com/favicon.ico"
         scope = "read:user user:email"
+    else:
+        st.error(t('unknown_sso_provider', provider=provider))
+        st.stop()
 
-    # Vérifier que la configuration est présente
+    # --- 2. Check if provider is configured ---
     if not config:
         st.error(t('oauth_not_configured').format(provider=provider.title()))
         st.info(t('oauth_config_help').format(provider=provider.upper()))
         return False
 
-    # Vérifier si on a déjà un token valide en session (persistance après rerun)
-    session_key = f"{provider}_oauth_result"
-    if session_key in st.session_state and st.session_state.get('authenticated'):
-        # Déjà authentifié, pas besoin de redemander
-        return True
-
-    # Créer le composant d'authentification
+    # Create the authentication component
     oauth2 = OAuth2Component(
-        config["client_id"],
-        config["client_secret"],
-        config["authorize_url"],
-        config["token_url"],
-        config["token_url"],
-        config["redirect_uri"]
+        client_id=config["client_id"],
+        client_secret=config["client_secret"],
+        authorize_endpoint=config["authorize_url"],
+        token_endpoint=config["token_url"],
+        refresh_token_endpoint=config.get("token_url"),
+        revoke_token_endpoint=None  # Not all providers have a revoke endpoint
     )
 
-    # Bouton de connexion
+    # --- 3. Display login button ---
     result = oauth2.authorize_button(
         name=button_text,
         icon=icon,
-        redirect_uri=config["redirect_uri"],
         scope=scope,
-        key=f"oauth_{provider}",
-        use_container_width=True
+        key=provider,
+        redirect_uri=config["redirect_uri"],
+        use_container_width=True,
+        pkce='S256'  # Enable PKCE for enhanced security (S256 = SHA-256 challenge method)
     )
 
+    # --- 4. Handle authentication result ---
     if result:
+        token = result.get("token")
+        access_token = token.get("access_token") if token else None
         user_info = result.get('user', {})
 
         # Essayer plusieurs façons de récupérer l'email
@@ -366,16 +195,22 @@ def _oauth_auth(provider: str, t):
             ''
         )
 
-        # Si l'email est vide, essayer de le récupérer via l'API du provider
-        if not user_email and result.get('token'):
+        # If email is missing, fetch it from the provider's userinfo endpoint
+        if not user_email and access_token:
             try:
-                if provider == "google":
-                    # Récupérer les infos via l'API Google
+                if provider == "oidc":
+                    userinfo_url = config.get("userinfo_url")
+                    if userinfo_url:
+                        response = requests.get(userinfo_url, headers={"Authorization": f"Bearer {access_token}"})
+                        if response.ok:
+                            user_info.update(response.json())
+                            user_email = user_info.get('email', '')
+                elif provider == "google":
                     response = requests.get(
                         "https://www.googleapis.com/oauth2/v2/userinfo",
-                        headers={"Authorization": f"Bearer {result['token']['access_token']}"}
+                        headers={"Authorization": f"Bearer {access_token}"}
                     )
-                    if response.status_code == 200:
+                    if response.ok:
                         google_info = response.json()
                         user_email = google_info.get('email', '')
                         # Mettre à jour user_info avec toutes les données
@@ -384,16 +219,16 @@ def _oauth_auth(provider: str, t):
                     # Récupérer les infos via l'API GitHub
                     response = requests.get(
                         "https://api.github.com/user",
-                        headers={"Authorization": f"token {result['token']['access_token']}"}
+                        headers={"Authorization": f"token {access_token}"}
                     )
-                    if response.status_code == 200:
+                    if response.ok:
                         github_info = response.json()
                         user_email = github_info.get('email', '')
                         # Si l'email principal est privé, essayer de récupérer les emails publics
                         if not user_email:
                             emails_response = requests.get(
                                 "https://api.github.com/user/emails",
-                                headers={"Authorization": f"token {result['token']['access_token']}"}
+                                headers={"Authorization": f"token {access_token}"}
                             )
                             if emails_response.status_code == 200:
                                 emails = emails_response.json()
@@ -404,8 +239,8 @@ def _oauth_auth(provider: str, t):
                                         break
                         user_info.update(github_info)
             except Exception as e:
-                auth_logger.error(f"Erreur lors de la récupération de l'email via API {provider}: {str(e)}")
-
+                auth_logger.error(f"Error fetching email via API for {provider}: {e}")
+        
         auth_logger.info(f"{provider.upper()} OAuth login attempt - email: {user_email}")
 
         # Vérifier si l'email est autorisé
@@ -423,21 +258,23 @@ def _oauth_auth(provider: str, t):
         session_id = session_manager.create_session(
             email=user_email,
             user_info=user_info,
-            auth_method=provider,
-            token=result.get('token')
+            auth_method=provider, # 'oidc', 'google', 'github'
+            token=token
         )
 
         # Sauvegarder les informations d'authentification dans la session
         st.session_state.authenticated = True
         st.session_state.auth_method = provider
-        st.session_state.oauth_token = result.get('token')
+        st.session_state.oauth_token = token
         st.session_state.user_info = user_info
         st.session_state.persistent_session_id = session_id
+        if token:
+            st.session_state.id_token = token.get("id_token")
 
-        # Sauvegarder le session_id dans localStorage
+        # Save session_id to localStorage
         local_storage = get_local_storage()
         local_storage.setItem('auth_session_id', session_id)
-        auth_logger.debug(f"localStorage auth_session_id défini avec session_id: {session_id}")
+        auth_logger.debug(f"localStorage 'auth_session_id' set with session_id: {session_id}")
 
         # Sauvegarder le résultat OAuth complet pour persistance
         st.session_state[f"{provider}_oauth_result"] = result
@@ -451,7 +288,7 @@ def _oauth_auth(provider: str, t):
             """,
             unsafe_allow_html=True
         )
-        st.success(f"✅ Connexion réussie ! Redirection...")
+        st.success(f"✅ {t('login_success_redirect')}")
         st.stop()
 
     return False
@@ -529,12 +366,8 @@ def check_authentication():
         provider = providers[0]
         if provider == AuthProvider.SIMPLE:
             _simple_auth(t)
-        elif provider == AuthProvider.OIDC:
-            _oidc_auth(t)
-        elif provider == AuthProvider.GOOGLE:
-            _oauth_auth("google", t)
-        elif provider == AuthProvider.GITHUB:
-            _oauth_auth("github", t)
+        else: # OIDC, Google, GitHub
+            _sso_auth(provider.value, t)
         st.stop()
 
     # Afficher la page de connexion
@@ -552,10 +385,10 @@ def check_authentication():
         with cols[idx]:
             if provider == AuthProvider.OIDC:
                 if st.button(
-                    "🔐 OIDC",
+                    f"🔐 {t('login_with_oidc')}",
                     key="btn_oidc",
                     use_container_width=True,
-                    help="Login with OpenID Connect"
+                    help=t('login_with_oidc_help')
                 ):
                     st.session_state.selected_auth_method = "oidc"
                     st.rerun()
@@ -603,11 +436,9 @@ def check_authentication():
 
         if selected_method == "password":
             _simple_auth(t)
-        elif selected_method == "oidc":
-            _oidc_auth(t)
-        elif selected_method in ["google", "github"]:
-            _oauth_auth(selected_method, t)
-
+        elif selected_method in ["oidc", "google", "github"]:
+            _sso_auth(selected_method, t)
+            
     st.stop()
 
 
@@ -663,7 +494,7 @@ def show_user_widget(t):
                 st.caption(f"📧 {user_info['email']}")
 
             if auth_method == "oidc":
-                st.caption("🔐 " + "Connected via OIDC")
+                st.caption(f"🔐 {t('connected_via_oidc')}")
             elif auth_method == "google":
                 st.caption("🔵 " + t('connected_via_google'))
             elif auth_method == "github":
