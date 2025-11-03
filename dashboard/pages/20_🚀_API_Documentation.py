@@ -42,7 +42,7 @@ if API_DISPLAY_HOST == os.getenv("API_HOST", "localhost"):
     API_BASE_URL = f"http://{API_DISPLAY_HOST}:{API_PORT}/api"
 else:
     # Behind reverse proxy: no port in URL
-    API_BASE_URL = f"http://{API_DISPLAY_HOST}/api"
+    API_BASE_URL = f"https://{API_DISPLAY_HOST}/api"
 
 st.subheader("🚀 Démarrage rapide")
 st.code("""

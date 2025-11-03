@@ -80,7 +80,15 @@ async def search(
     async def search_meilisearch() -> Tuple[List[SearchResult], float]:
         s = time.time()
         try:
-            res = await meilisearch_client.search(query=q, lang=lang.value, limit=limit * 2, use_hybrid=use_hybrid)
+            # Only retrieve vectors if reranking is enabled (saves bandwidth)
+            need_vectors = RERANKING_ENABLED and use_reranking
+            res = await meilisearch_client.search(
+                query=q,
+                lang=lang.value,
+                limit=limit * 2,
+                use_hybrid=use_hybrid,
+                retrieve_vectors=need_vectors
+            )
             return res, (time.time() - s) * 1000
         except MeilisearchApiError as e:
             logger.error(f"Meilisearch API error: {e}")

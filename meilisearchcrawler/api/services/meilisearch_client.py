@@ -65,10 +65,12 @@ class MeilisearchClient:
     async def connect(self):
         """Connect to Meilisearch and initialize the index."""
         try:
-            self.client = AsyncClient(self.url, self.api_key)
+            # Configure with timeout for faster failure detection
+            # meilisearch-python-sdk accepts timeout parameter (in seconds)
+            self.client = AsyncClient(self.url, self.api_key, timeout=5)
             self.index = self.client.index(self.index_name)
             await self.client.health()
-            logger.info(f"Connected to Meilisearch at {self.url}, index: {self.index_name}")
+            logger.info(f"Connected to Meilisearch at {self.url}, index: {self.index_name} (timeout: 5s)")
         except MeilisearchCommunicationError:
             logger.error(f"Failed to connect to Meilisearch at {self.url}. Service may be down.")
             raise
@@ -87,7 +89,7 @@ class MeilisearchClient:
             return False
 
     async def search(
-            self, query: str, lang: Optional[str] = None, limit: int = 20, use_hybrid: bool = True  # AJOUTÉ
+            self, query: str, lang: Optional[str] = None, limit: int = 20, use_hybrid: bool = True, retrieve_vectors: bool = True  # AJOUTÉ
     ) -> List[SearchResult]:
         """Search Meilisearch index using keyword or hybrid vector search."""
         if not self.index:
@@ -97,9 +99,14 @@ class MeilisearchClient:
         try:
             from meilisearch_python_sdk.models.search import Hybrid
 
+            # Only retrieve vectors if reranking is enabled (saves ~100KB+ bandwidth)
+            attributes = ["id", "title", "url", "excerpt", "site", "images", "lang", "timestamp", "indexed_at"]
+            if retrieve_vectors:
+                attributes.append("_vectors")
+
             search_params = {
                 "limit": limit,
-                "attributes_to_retrieve": [ "id", "title", "url", "excerpt", "site", "images", "lang", "timestamp", "indexed_at", "_vectors"],
+                "attributes_to_retrieve": attributes,
                 "attributes_to_search_on": ["title", "excerpt"],
                 "show_ranking_score": True,
             }
