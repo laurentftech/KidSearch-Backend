@@ -1,5 +1,5 @@
 # --- Stage 1: Builder ---
-FROM python:3.13-slim AS builder
+FROM python:3.11-slim AS builder
 
 LABEL maintainer="KidSearch Team"
 LABEL description="Builder stage for KidSearch dependencies"
@@ -23,7 +23,7 @@ RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
 
 
 # --- Stage 2: Final Image ---
-FROM python:3.13-slim
+FROM python:3.11-slim
 
 LABEL maintainer="KidSearch Team"
 LABEL description="KidSearch Dashboard & API - Safe search engine for children"
