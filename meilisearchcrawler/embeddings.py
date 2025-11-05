@@ -248,8 +248,9 @@ def create_embedding_provider(provider_name: Optional[str] = None) -> EmbeddingP
             return NoEmbeddingProvider()
 
     elif provider_name == 'huggingface':
-        model_name = os.getenv('HUGGINGFACE_MODEL', 'intfloat/multilingual-e5-small')
-        api_url = os.getenv('HUGGINGFACE_API_URL', 'http://localhost:8081/embed')
+        # Support both RERANKER_API_URL (preferred) and HUGGINGFACE_API_URL for backwards compatibility
+        model_name = os.getenv('RERANKER_MODEL') or os.getenv('HUGGINGFACE_MODEL', 'intfloat/multilingual-e5-small')
+        api_url = os.getenv('RERANKER_API_URL') or os.getenv('HUGGINGFACE_API_URL', 'http://localhost:8081/embed')
 
         try:
             return HuggingFaceInferenceAPIEmbeddingProvider(model_name=model_name, api_url=api_url)

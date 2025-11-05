@@ -11,8 +11,9 @@ from pathlib import Path
 from typing import List, Optional
 
 from meilisearch_python_sdk import AsyncClient
-from meilisearch_python_sdk.errors import MeilisearchApiError, MeilisearchCommunicationError
+from meilisearch_python_sdk.errors import MeilisearchApiError, MeilisearchCommunicationError, MeilisearchError
 from meilisearch_python_sdk.models.search import SearchResults, Hybrid
+import httpx
 
 # Ajouter le répertoire racine au path pour les imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
@@ -49,28 +50,23 @@ class MeilisearchClient:
             self.use_vector_search = True
             self.is_rest_embedder = True
         elif embedding_provider_name in ["huggingface", "sentence_transformer"]:
-            try:
-                self.embedding_provider = create_embedding_provider(embedding_provider_name)
-                if self.embedding_provider.get_embedding_dim() > 0:
-                    self.use_vector_search = True
-                    logger.info(
-                        f"✓ Vector search enabled with {embedding_provider_name.title()} "
-                        f"({self.embedding_provider.get_embedding_dim()}D)"
-                    )
-            except Exception as e:
-                logger.warning(f"Failed to initialize embedding provider for queries: {e}")
+            # HuggingFace embeddings are handled by Meilisearch's userProvided embedder
+            # We don't need to generate embeddings client-side
+            logger.info("✓ Vector search enabled with HuggingFace (Meilisearch REST embedder)")
+            self.use_vector_search = True
+            self.is_rest_embedder = True
         else:
             logger.info("Vector search disabled (no embedding provider)")
 
     async def connect(self):
         """Connect to Meilisearch and initialize the index."""
         try:
-            # Configure with timeout for faster failure detection
+            # Configure with timeout for complex searches (especially hybrid/vector search)
             # meilisearch-python-sdk accepts timeout parameter (in seconds)
-            self.client = AsyncClient(self.url, self.api_key, timeout=5)
+            self.client = AsyncClient(self.url, self.api_key, timeout=30)
             self.index = self.client.index(self.index_name)
             await self.client.health()
-            logger.info(f"Connected to Meilisearch at {self.url}, index: {self.index_name} (timeout: 5s)")
+            logger.info(f"Connected to Meilisearch at {self.url}, index: {self.index_name} (timeout: 30s)")
         except MeilisearchCommunicationError:
             logger.error(f"Failed to connect to Meilisearch at {self.url}. Service may be down.")
             raise
@@ -162,11 +158,17 @@ class MeilisearchClient:
             logger.info(f"Meilisearch search for '{query}' (lang={lang}): {len(search_results)} results")
             return search_results
 
+        except httpx.ReadTimeout:
+            logger.error(f"Meilisearch search timeout for query '{query}' (exceeded 30s). Try reducing index size or optimizing search parameters.")
+            return []
         except MeilisearchApiError as e:
-            logger.error(f"Meilisearch API error: {e}", exc_info=True)
+            logger.error(f"Meilisearch API error for query '{query}': {e}")
+            return []
+        except MeilisearchError as e:
+            logger.error(f"Meilisearch error for query '{query}': {e}")
             return []
         except Exception as e:
-            logger.error(f"Meilisearch search error: {e}", exc_info=True)
+            logger.error(f"Unexpected error during Meilisearch search for '{query}': {type(e).__name__}: {e}")
             return []
 
     def _generate_id(self, url: str) -> str:

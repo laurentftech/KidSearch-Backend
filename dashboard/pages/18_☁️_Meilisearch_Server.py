@@ -313,17 +313,64 @@ with tab3:
 with tab4:
     st.subheader("Configure Filterable and Sortable Attributes")
 
+    st.warning("⚠️ **Performance Warning**: Never include long text fields (title, content) in filterable attributes. This severely impacts search performance!")
+
     st.info("Configure which attributes can be used for filtering and sorting in search queries.")
+
+    # Quick performance fix button
+    if st.button("⚡ Apply Performance Optimization", type="primary"):
+        with st.spinner("Optimizing filterable attributes..."):
+            try:
+                index = client.index(INDEX_NAME)
+
+                # Optimal filterable attributes (exclude title and content)
+                optimal_filterable = [
+                    "site",
+                    "timestamp",
+                    "lang",
+                    "indexed_at",
+                    "last_crawled_at",
+                    "embedding_provider",
+                    "embedding_model",
+                    "embedding_dimensions",
+                    "_vectors.default"
+                ]
+
+                task = index.update_filterable_attributes(optimal_filterable)
+                client.wait_for_task(task.task_uid)
+
+                st.success("✅ Filterable attributes optimized! Search performance should improve significantly.")
+                st.info("Removed: title, content (long text fields that slow down filtering)")
+                st.balloons()
+                time.sleep(2)
+                st.rerun()
+
+            except Exception as e:
+                st.error(f"Error optimizing attributes: {e}")
+
+    st.divider()
 
     col1, col2 = st.columns(2)
 
     with col1:
         st.write("**Filterable Attributes**")
-        default_filterable = ["site", "timestamp", "lang", "indexed_at", "last_crawled_at", "title", "content"]
+        # Optimized default (without title and content)
+        default_filterable = [
+            "site",
+            "timestamp",
+            "lang",
+            "indexed_at",
+            "last_crawled_at",
+            "embedding_provider",
+            "embedding_model",
+            "embedding_dimensions",
+            "_vectors.default"
+        ]
         filterable_attrs = st.text_area(
             "Filterable Attributes (one per line)",
             value="\n".join(default_filterable),
-            height=200
+            height=200,
+            help="⚠️ Do NOT include 'title' or 'content' - they severely impact performance!"
         )
 
     with col2:

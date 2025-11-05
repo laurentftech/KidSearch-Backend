@@ -72,10 +72,32 @@ delete_*.py
 enable_*.py
 fix_*.py
 verify_*.py
+recalculate_*.py
+update_*.py
+warmup_*.py
+benchmark_*.py
+watch_*.sh
+publish.sh
 
 # Documentation temporaire
 *_SUMMARY.txt
 *_ANALYSIS.md
 TEST_*.md
 QUICK_*.md
+API_README*.md
+AUTHENTICATION_GUIDE.md
+DOCKER_*.md
+EMBEDDINGS.md
+EMBEDDING_*.md
+MEILISEARCH_*.md
+PERFORMANCE_GUIDE.md
+README.DOCKERHUB.md
+TROUBLESHOOTING.md
+
+# Configuration Docker temporaire
+docker-compose.performance.yml
+docker-compose.synology*.yml
+.dockerignore
+.env.docker.example
+
 /data/
