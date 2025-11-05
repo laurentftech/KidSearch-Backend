@@ -82,10 +82,12 @@ async def search(
         try:
             # Only retrieve vectors if reranking is enabled (saves bandwidth)
             need_vectors = RERANKING_ENABLED and use_reranking
+            # Don't multiply limit by 2 on weak CPUs - it causes exponential slowdown
+            # On DS220+: limit=20 takes 500ms, limit=40 takes 2000ms
             res = await meilisearch_client.search(
                 query=q,
                 lang=lang.value,
-                limit=limit * 2,
+                limit=limit,  # Changed from limit * 2
                 use_hybrid=use_hybrid,
                 retrieve_vectors=need_vectors
             )
@@ -157,7 +159,8 @@ async def search(
             deduped_wiki_res.append(r)
             seen_ids.add(r.id)
 
-    merged_results = deduped_wiki_res + merger.merge(meilisearch_results=meili_res, cse_results=cse_res, limit=limit * 2)
+    # Changed from limit * 2 to limit for performance on weak CPUs
+    merged_results = deduped_wiki_res + merger.merge(meilisearch_results=meili_res, cse_results=cse_res, limit=limit)
 
     reranking_applied, reranking_time_ms = False, None
     if use_reranking and RERANKING_ENABLED and reranker and query_embedding is not None:
