@@ -60,9 +60,11 @@ os.makedirs(DATA_DIR, exist_ok=True)
 LOG_FILE_PATH = os.path.join(LOGS_DIR, 'crawler.log')
 load_dotenv(os.path.join(PROJECT_ROOT, '.env'))
 
+# Get log level from environment variable
+log_level = os.getenv("LOG_LEVEL", "INFO").upper()
 logging.basicConfig(
-    level=logging.INFO,
-    format='[%(asctime)s] [%(levelname)s] [%(name)s:%(lineno)d] %(message)s',
+    level=getattr(logging, log_level, logging.INFO),
+    format='%(asctime)s - [CRAWLER] - %(levelname)s:%(filename)s:%(lineno)d:%(funcName)s: %(message)s',
     handlers=[
         logging.StreamHandler(),
         logging.FileHandler(LOG_FILE_PATH, encoding='utf-8')

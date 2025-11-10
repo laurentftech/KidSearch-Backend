@@ -151,6 +151,8 @@ async def search(
     cse_res = safety_filter.filter_results(cse_res)
     wiki_res = safety_filter.filter_results(wiki_res)
 
+    logger.info(f"Results after safety filter: Meilisearch={len(meili_res)}, CSE={len(cse_res)}, Wiki={len(wiki_res)}")
+
     # Deduplicate wiki results by ID to avoid duplicates from multiple wikis
     seen_ids = set()
     deduped_wiki_res = []
@@ -159,8 +161,11 @@ async def search(
             deduped_wiki_res.append(r)
             seen_ids.add(r.id)
 
+    logger.info(f"Wiki results after deduplication: {len(deduped_wiki_res)}")
+
     # Changed from limit * 2 to limit for performance on weak CPUs
     merged_results = deduped_wiki_res + merger.merge(meilisearch_results=meili_res, cse_results=cse_res, limit=limit)
+    logger.info(f"Results after merge: {len(merged_results)}")
 
     reranking_applied, reranking_time_ms = False, None
     if use_reranking and RERANKING_ENABLED and reranker and query_embedding is not None:
@@ -168,14 +173,20 @@ async def search(
         merged_results = reranker.rerank(query=q, results=merged_results, top_k=limit, query_embedding=query_embedding)
         reranking_time_ms = (time.time() - rerank_start) * 1000
         reranking_applied = True
+        logger.info(f"Reranking applied in {reranking_time_ms:.2f}ms, results after rerank: {len(merged_results)}")
+    else:
+        logger.info(f"Reranking skipped (enabled={use_reranking}, configured={RERANKING_ENABLED}, reranker={reranker is not None}, embedding={query_embedding is not None})")
 
     final_results = merged_results[:limit]
+    logger.info(f"Final results count: {len(final_results)}")
 
     # Remove embeddings from results before sending to client (waste of bandwidth)
     for result in final_results:
         result.vectors = None
 
     total_time_ms = (time.time() - start_time) * 1000
+
+    logger.info(f"Search completed in {total_time_ms:.2f}ms - Breakdown: Meili={meili_time:.1f}ms, CSE={cse_time:.1f}ms, Wiki={wiki_time:.1f}ms, Rerank={reranking_time_ms:.1f}ms" if reranking_time_ms else f"Search completed in {total_time_ms:.2f}ms - Breakdown: Meili={meili_time:.1f}ms, CSE={cse_time:.1f}ms, Wiki={wiki_time:.1f}ms")
 
     stats = SearchStats(
         total_results=len(final_results),

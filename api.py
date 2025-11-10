@@ -18,7 +18,7 @@ load_dotenv()
 log_level = os.getenv("LOG_LEVEL", "INFO").upper()
 logging.basicConfig(
     level=log_level,
-    format="[%(asctime)s] [%(levelname)s] [%(name)s:%(lineno)d] %(message)s",
+    format="%(asctime)s - [API] - %(levelname)s:%(filename)s:%(lineno)d:%(funcName)s: %(message)s",
 )
 
 # Force log level for application loggers (uvicorn may override root logger)

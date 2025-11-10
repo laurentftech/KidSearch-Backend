@@ -69,7 +69,7 @@ def _simple_auth(t):
 
     with st.form("login_form"):
         password = st.text_input(t('password_label'), type="password", key="password_input")
-        submit = st.form_submit_button(t('login_button'), use_container_width=True)
+        submit = st.form_submit_button(t('login_button'), width='stretch')
 
         if submit:
             if password == dashboard_password:
@@ -177,7 +177,7 @@ def _sso_auth(provider: str, t):
         scope=scope,
         key=provider,
         redirect_uri=config["redirect_uri"],
-        use_container_width=True,
+        width='stretch',
         pkce='S256'  # Enable PKCE for enhanced security (S256 = SHA-256 challenge method)
     )
 
@@ -387,7 +387,7 @@ def check_authentication():
                 if st.button(
                     f"🔐 {t('login_with_oidc')}",
                     key="btn_oidc",
-                    use_container_width=True,
+                    width='stretch',
                     help=t('login_with_oidc_help')
                 ):
                     st.session_state.selected_auth_method = "oidc"
@@ -397,7 +397,7 @@ def check_authentication():
                 if st.button(
                     "🔵 Google",
                     key="btn_google",
-                    use_container_width=True,
+                    width='stretch',
                     help=t('login_with_google_help')
                 ):
                     st.session_state.selected_auth_method = "google"
@@ -407,7 +407,7 @@ def check_authentication():
                 if st.button(
                     "⚫ GitHub",
                     key="btn_github",
-                    use_container_width=True,
+                    width='stretch',
                     help=t('login_with_github_help')
                 ):
                     st.session_state.selected_auth_method = "github"
@@ -417,7 +417,7 @@ def check_authentication():
                 if st.button(
                     "🔑 " + t('simple_password'),
                     key="btn_password",
-                    use_container_width=True,
+                    width='stretch',
                     help=t('login_with_password_help')
                 ):
                     st.session_state.selected_auth_method = "password"
@@ -502,5 +502,5 @@ def show_user_widget(t):
             elif auth_method == "password":
                 st.caption("🔑 " + t('connected_via_password'))
 
-            if st.button(t('logout_button'), key="logout_btn", use_container_width=True):
+            if st.button(t('logout_button'), key="logout_btn", width='stretch'):
                 logout()

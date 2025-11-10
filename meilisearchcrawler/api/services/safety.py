@@ -113,6 +113,7 @@ class SafetyFilter:
 
         filtered = []
         blocked_count = 0
+        blocked_reasons: Dict[str, int] = {}
 
         for result in results:
             is_safe, reason = self.is_safe(result)
@@ -120,13 +121,24 @@ class SafetyFilter:
                 filtered.append(result)
             else:
                 blocked_count += 1
-                logger.debug(
-                    f"Result blocked by safety filter: {result.url} "
-                    f"(title: {result.title[:50]}...) - Reason: {reason}"
+                # Count reasons for summary
+                reason_key = reason.split(':')[0] if reason else "Unknown"
+                blocked_reasons[reason_key] = blocked_reasons.get(reason_key, 0) + 1
+
+                logger.info(
+                    f"🚫 BLOCKED by safety filter:\n"
+                    f"  URL: {result.url}\n"
+                    f"  Title: {result.title}\n"
+                    f"  Excerpt: {result.excerpt[:100] if result.excerpt else 'N/A'}...\n"
+                    f"  Source: {result.source}\n"
+                    f"  Reason: {reason}"
                 )
 
         if blocked_count > 0:
-            logger.info(f"Safety filter blocked {blocked_count} results")
+            reasons_summary = ", ".join([f"{reason}={count}" for reason, count in blocked_reasons.items()])
+            logger.warning(f"⚠️ Safety filter blocked {blocked_count}/{len(results)} results - Reasons: {reasons_summary}")
+        else:
+            logger.info(f"✅ Safety filter: All {len(results)} results passed")
 
         return filtered
 

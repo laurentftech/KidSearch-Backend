@@ -26,7 +26,7 @@ load_dotenv()
 log_level_str = os.getenv("LOG_LEVEL", "INFO").upper()
 logging.basicConfig(
     level=log_level_str,
-    format="[%(asctime)s] [%(levelname)s] [%(name)s:%(lineno)d] %(message)s",
+    format="%(asctime)s - [START] - %(levelname)s:%(filename)s:%(lineno)d:%(funcName)s: %(message)s",
 )
 logger = logging.getLogger(__name__)
 
@@ -94,6 +94,7 @@ class ServiceManager:
             "--browser.serverAddress", display_hostname_only,  # Indique à Streamlit quelle URL afficher
             "--server.headless", "true",
             "--browser.gatherUsageStats", "false",
+            "--logger.level", "error",  # Reduce Streamlit logging verbosity
         ]
 
         # Add environment variables for subprocesses

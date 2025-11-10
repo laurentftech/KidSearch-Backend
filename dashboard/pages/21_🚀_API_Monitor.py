@@ -219,10 +219,10 @@ if stats_data:
                 yaxis_title="",
                 height=400,
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
 
             with st.expander("📋 Voir toutes les requêtes"):
-                st.dataframe(df_queries, use_container_width=True)
+                st.dataframe(df_queries, width='stretch')
         else:
             st.info("Aucune requête populaire pour le moment.")
     else:

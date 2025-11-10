@@ -266,7 +266,7 @@ if stats:
                 on_click=run_embedding_process,
                 disabled=process_running or without_vectors == 0,
                 type="primary",
-                use_container_width=True
+                width='stretch'
             )
         with col_btn2:
             if process_running:

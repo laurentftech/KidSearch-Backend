@@ -215,7 +215,7 @@ if metrics_text:
                 yaxis=dict(categoryorder='array', categoryarray=y_labels[::-1])
             )
 
-            st.plotly_chart(fig_gantt, use_container_width=True)
+            st.plotly_chart(fig_gantt, width='stretch')
 
         with col2:
             # Waterfall chart showing time composition
@@ -242,7 +242,7 @@ if metrics_text:
                 yaxis_title="Temps (ms)"
             )
 
-            st.plotly_chart(fig_waterfall, use_container_width=True)
+            st.plotly_chart(fig_waterfall, width='stretch')
 
         # Summary insights
         st.markdown("---")
@@ -311,7 +311,7 @@ if metrics_text:
     # --- All Metrics Expander ---
     with st.expander(t("api_metrics.view_all_metrics")):
         df = pd.DataFrame(sorted(metrics_data.items()), columns=[t("api_metrics.metric"), t("api_metrics.value")])
-        st.dataframe(df, use_container_width=True)
+        st.dataframe(df, width='stretch')
 
 else:
     st.warning(t("api_metrics.no_metrics_warning"))
