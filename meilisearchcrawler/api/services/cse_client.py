@@ -161,6 +161,8 @@ class CSEClient:
             "lr": f"lang_{lang}",  # Language restriction
             "num": min(num_results, 10),  # Max 10 per request
             "safe": "active",  # Safe search enabled
+            # Optimize response size by requesting only necessary fields
+            "fields": "items(title,link,snippet,displayLink,pagemap(cse_image(src)))",
         }
 
         # Add Referer header to pass HTTP referrer restrictions

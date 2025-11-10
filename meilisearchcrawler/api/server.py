@@ -53,9 +53,23 @@ async def lifespan(app: FastAPI):
     """Lifecycle manager for FastAPI app."""
     app.state = AppState()
 
-    # Configure logging level from environment (for worker processes)
+    # Configure logging for worker processes
+    # Each worker is a separate process, so we need to configure logging here
     log_level = os.getenv("LOG_LEVEL", "INFO").upper()
-    logging.getLogger("meilisearchcrawler").setLevel(log_level)
+
+    # Get or create the meilisearchcrawler logger
+    app_logger = logging.getLogger("meilisearchcrawler")
+    app_logger.setLevel(log_level)
+
+    # Add a console handler if not already present
+    if not app_logger.handlers:
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(log_level)
+        formatter = logging.Formatter(
+            "%(asctime)s - [API] - %(levelname)s:%(filename)s:%(lineno)d:%(funcName)s: %(message)s"
+        )
+        console_handler.setFormatter(formatter)
+        app_logger.addHandler(console_handler)
 
     logger.info("Starting KidSearch API backend...")
 
