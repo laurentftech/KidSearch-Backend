@@ -101,3 +101,5 @@ docker-compose.synology*.yml
 .env.docker.example
 
 /data/
+/.env.docker
+/.claude/settings.local.json
