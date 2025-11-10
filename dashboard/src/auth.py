@@ -6,6 +6,7 @@ Supporte Authentik (OpenID Connect), Google OAuth, GitHub OAuth et authentificat
 import streamlit as st
 import os
 import hashlib
+from argon2 import PasswordHasher
 import requests
 import logging
 from datetime import datetime
@@ -40,15 +41,18 @@ def get_local_storage():
         st.session_state.local_storage = LocalStorage()
     return st.session_state.local_storage
 
+ph = PasswordHasher()
 
 def _hash_password(password: str) -> str:
-    """Hash a password using SHA-256."""
-    return hashlib.sha256(password.encode()).hexdigest()
-
+    """Hash a password using Argon2."""
+    return ph.hash(password)
 
 def _check_password(password: str, hashed: str) -> bool:
-    """Verify a password against its hash."""
-    return _hash_password(password) == hashed
+    """Verify a password against its hash using Argon2."""
+    try:
+        return ph.verify(hashed, password)
+    except Exception:
+        return False
 
 
 def _simple_auth(t):
