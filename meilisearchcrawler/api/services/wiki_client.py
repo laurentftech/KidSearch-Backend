@@ -18,6 +18,13 @@ try:
 except ImportError:
     CURL_CFFI_AVAILABLE = False
 
+# Import cloudscraper for advanced Cloudflare bypass
+try:
+    import cloudscraper
+    CLOUDSCRAPER_AVAILABLE = True
+except ImportError:
+    CLOUDSCRAPER_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 # User-Agent for HTTP requests
@@ -51,15 +58,31 @@ class WikiClient:
             self.lang = lang
 
     def _use_cloudflare_bypass(self) -> bool:
-        """Determines if curl_cffi should be used to bypass Cloudflare."""
-        return CURL_CFFI_AVAILABLE and 'vikidia' in self.site_name.lower()
+        """Determines if cloudscraper should be used to bypass Cloudflare."""
+        return CLOUDSCRAPER_AVAILABLE and 'vikidia' in self.site_name.lower()
 
     async def _fetch_with_curl_cffi(self, params: dict) -> dict:
         """Makes a request using curl_cffi to bypass Cloudflare."""
         async with CurlAsyncSession() as session:
             try:
+                # Build Accept-Language based on wiki language
+                accept_lang_map = {
+                    'fr': 'fr-FR,fr;q=0.9,en;q=0.8',
+                    'en': 'en-US,en;q=0.9',
+                    'es': 'es-ES,es;q=0.9,en;q=0.8',
+                    'de': 'de-DE,de;q=0.9,en;q=0.8'
+                }
+                accept_language = accept_lang_map.get(self.lang, 'en-US,en;q=0.9')
+
                 headers = {
-                    'Accept-Encoding': 'gzip, deflate'
+                    'Accept': 'application/json, text/javascript, */*; q=0.01',
+                    'Accept-Language': accept_language,
+                    'Accept-Encoding': 'gzip, deflate, br',
+                    'Referer': self.site_url,
+                    'DNT': '1',
+                    'Sec-Fetch-Dest': 'empty',
+                    'Sec-Fetch-Mode': 'cors',
+                    'Sec-Fetch-Site': 'same-origin'
                 }
                 response = await session.get(
                     self.api_url,
@@ -86,19 +109,51 @@ class WikiClient:
         accept_language = accept_lang_map.get(self.lang, 'en-US,en;q=0.9')
 
         headers = {
-            'User-Agent': self.user_agent,
-            'Accept': 'application/json',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'application/json, text/javascript, */*; q=0.01',
             'Accept-Language': accept_language,
-            'Accept-Encoding': 'gzip, deflate'
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Referer': self.site_url,
+            'DNT': '1',
+            'Connection': 'keep-alive'
         }
         async with aiohttp.ClientSession(headers=headers, connector=aiohttp.TCPConnector(ssl=self.ssl_context)) as session:
             try:
-                async with session.get(self.api_url, params=params, timeout=10) as response:
+                async with session.get(self.api_url, params=params, timeout=aiohttp.ClientTimeout(total=15)) as response:
                     response.raise_for_status()
                     return await response.json()
             except Exception as e:
                 logger.error(f"HTTP error while searching wiki with aiohttp: {e}")
                 return {}
+
+    async def _fetch_with_cloudscraper(self, params: dict) -> dict:
+        """Makes a request using cloudscraper to bypass Cloudflare challenges."""
+        import asyncio
+        from functools import partial
+        import certifi
+
+        try:
+            # cloudscraper is sync, so we run it in executor
+            scraper = cloudscraper.create_scraper(
+                browser={
+                    'browser': 'chrome',
+                    'platform': 'windows',
+                    'desktop': True
+                }
+            )
+
+            # Run synchronous request in thread pool with SSL cert verification
+            loop = asyncio.get_event_loop()
+            response = await loop.run_in_executor(
+                None,
+                partial(scraper.get, self.api_url, params=params, timeout=15, verify=certifi.where())
+            )
+
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            logger.error(f"HTTP error while searching wiki with cloudscraper: {e}")
+            return {}
 
     async def search(self, query: str, lang: str, limit: int = 5) -> List[SearchResult]:
         """
@@ -124,8 +179,20 @@ class WikiClient:
 
         use_cf_bypass = self._use_cloudflare_bypass()
         if use_cf_bypass:
-            logger.debug(f"Using curl_cffi to search wiki: {self.site_name}")
-            data = await self._fetch_with_curl_cffi(params)
+            # Try cloudscraper first (best Cloudflare bypass)
+            logger.debug(f"Using cloudscraper to search wiki: {self.site_name}")
+            data = await self._fetch_with_cloudscraper(params)
+
+            # Fallback to curl_cffi if cloudscraper failed
+            if not data or 'query' not in data:
+                logger.info(f"cloudscraper failed for {self.site_name}, trying curl_cffi")
+                if CURL_CFFI_AVAILABLE:
+                    data = await self._fetch_with_curl_cffi(params)
+
+            # Final fallback to aiohttp
+            if not data or 'query' not in data:
+                logger.info(f"All CF bypass methods failed for {self.site_name}, falling back to aiohttp")
+                data = await self._fetch_with_aiohttp(params)
         else:
             logger.debug(f"Using aiohttp to search wiki: {self.site_name}")
             data = await self._fetch_with_aiohttp(params)

@@ -15,8 +15,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Setup logging
+log_level = os.getenv("LOG_LEVEL", "INFO").upper()
 logging.basicConfig(
-    level=logging.INFO,
+    level=log_level,
     format="[%(asctime)s] [%(levelname)s] [%(name)s:%(lineno)d] %(message)s",
 )
 logger = logging.getLogger(__name__)
@@ -70,6 +71,7 @@ def main():
     logger.info("=" * 60)
     logger.info("KidSearch API Backend")
     logger.info("=" * 60)
+    logger.info(f"Log Level: {log_level}")
     logger.info(f"Host: {host}")
     logger.info(f"Port: {port}")
     logger.info(f"Workers: {workers}")
@@ -96,7 +98,7 @@ def main():
             host=host,
             port=port,
             workers=workers,
-            log_level="info",
+            log_level=log_level.lower(),
             reload=False,  # Set to True for development
         )
     except KeyboardInterrupt:

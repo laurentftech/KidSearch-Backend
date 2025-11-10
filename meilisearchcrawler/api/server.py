@@ -10,6 +10,9 @@ from typing import Dict, Optional
 from pathlib import Path
 from dotenv import load_dotenv
 
+# Configure basic logging to ensure INFO messages are displayed
+logging.basicConfig(level=logging.INFO)
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from meilisearch_python_sdk.errors import MeilisearchCommunicationError
@@ -146,9 +149,23 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
     Instrumentator().instrument(app).expose(app, endpoint="/api/metrics")
+    
+    # For development, allow localhost
+    origins = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ]
+    
+    frontend_urls = os.getenv("FRONTEND_URL")
+    if frontend_urls:
+        # Split by comma to allow multiple frontend URLs
+        origins.extend([url.strip() for url in frontend_urls.split(',')])
+
+    logger.info(f"Configuring CORS with allowed origins: {origins}")
+
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"], 
+        allow_origins=origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

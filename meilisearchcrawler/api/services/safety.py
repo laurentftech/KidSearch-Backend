@@ -5,7 +5,7 @@ Filters inappropriate domains, keywords, and content.
 
 import logging
 import re
-from typing import List, Set, Dict, Any
+from typing import List, Set, Dict, Any, Tuple, Optional
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -115,13 +115,14 @@ class SafetyFilter:
         blocked_count = 0
 
         for result in results:
-            if self.is_safe(result):
+            is_safe, reason = self.is_safe(result)
+            if is_safe:
                 filtered.append(result)
             else:
                 blocked_count += 1
                 logger.debug(
                     f"Result blocked by safety filter: {result.url} "
-                    f"(title: {result.title[:50]}...)"
+                    f"(title: {result.title[:50]}...) - Reason: {reason}"
                 )
 
         if blocked_count > 0:
@@ -129,7 +130,7 @@ class SafetyFilter:
 
         return filtered
 
-    def is_safe(self, result: SearchResult) -> bool:
+    def is_safe(self, result: SearchResult) -> Tuple[bool, Optional[str]]:
         """
         Check if a search result is safe for children.
 
@@ -137,35 +138,31 @@ class SafetyFilter:
             result: Search result to check
 
         Returns:
-            True if safe, False otherwise
+            A tuple of (is_safe, reason_if_not_safe)
         """
 
         # Check domain whitelist (if configured)
         if self.allowed_domains:
             domain = self._extract_domain(result.url)
             if domain not in self.allowed_domains:
-                logger.debug(f"Domain not in whitelist: {domain}")
-                return False
+                return False, f"Domain not in whitelist: {domain}"
 
         # Check domain blacklist
         domain = self._extract_domain(result.url)
         if domain in self.blocked_domains:
-            logger.debug(f"Domain blocked: {domain}")
-            return False
+            return False, f"Domain blocked: {domain}"
 
         # Check URL against blocked keywords
         url_lower = str(result.url).lower()
         for keyword in self.blocked_keywords:
             if keyword in url_lower:
-                logger.debug(f"URL contains blocked keyword '{keyword}': {result.url}")
-                return False
+                return False, f"URL contains blocked keyword '{keyword}'"
 
         # Check title against blocked keywords
         title_lower = result.title.lower()
         for keyword in self.blocked_keywords:
             if keyword in title_lower:
-                logger.debug(f"Title contains blocked keyword '{keyword}': {result.title}")
-                return False
+                return False, f"Title contains blocked keyword '{keyword}'"
 
         # Check excerpt/content against blocked keywords
         text_lower = (result.excerpt or "").lower()
@@ -174,18 +171,16 @@ class SafetyFilter:
 
         for keyword in self.blocked_keywords:
             if keyword in text_lower:
-                logger.debug(f"Content contains blocked keyword '{keyword}'")
-                return False
+                return False, f"Content contains blocked keyword '{keyword}'"
 
         # Check against regex patterns
         combined_text = f"{result.title} {result.excerpt or ''} {result.content or ''}"
         for pattern in self.blocked_patterns:
             if pattern.search(combined_text):
-                logger.debug(f"Content matches blocked pattern: {pattern.pattern}")
-                return False
+                return False, f"Content matches blocked pattern: {pattern.pattern}"
 
         # Passed all checks
-        return True
+        return True, None
 
     def _extract_domain(self, url: str) -> str:
         """

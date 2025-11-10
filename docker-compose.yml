@@ -9,9 +9,16 @@ services:
     environment:
       MEILI_MASTER_KEY: ${MEILI_KEY:-masterKey}
       MEILI_NO_ANALYTICS: true
-      # Optimized for 6GB RAM
-      MEILI_MAX_INDEXING_MEMORY: 512MB
+      # Increased for better caching - keeps index in RAM to avoid HDD cold starts
+      MEILI_MAX_INDEXING_MEMORY: 2GB
       MEILI_MAX_INDEXING_THREADS: 2
+    # Docker memory limits - guarantee RAM allocation
+    deploy:
+      resources:
+        limits:
+          memory: 2.5G
+        reservations:
+          memory: 1.5G
     volumes:
       # Use Docker volume instead of hardcoded Synology path
       - ./meili_data:/meili_data

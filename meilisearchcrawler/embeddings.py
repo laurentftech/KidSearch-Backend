@@ -90,8 +90,8 @@ class HuggingFaceInferenceAPIEmbeddingProvider(EmbeddingProvider):
         super().__init__(model_name)
         self.api_url = api_url
         self.embedding_dim = self.MODEL_DIMENSIONS.get(model_name, 768)
-        self.batch_size = int(os.getenv("EMBEDDING_BATCH_SIZE", "16"))
-        self.timeout = int(os.getenv("EMBEDDING_TIMEOUT", "10"))
+        self.batch_size = int(os.getenv("EMBEDDING_BATCH_SIZE", "6"))
+        self.timeout = int(os.getenv("EMBEDDING_TIMEOUT", "30"))
         self._embedding_cache = LRUCache(maxsize=int(os.getenv("EMBEDDING_CACHE_SIZE", "2048")))
 
         try:

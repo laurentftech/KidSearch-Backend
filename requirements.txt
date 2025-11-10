@@ -22,6 +22,7 @@ trafilatura
 langdetect
 curl-cffi
 aiohttp
+cloudscraper
 psutil
 
 # --- Dashboard ---
