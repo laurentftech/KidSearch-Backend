@@ -164,6 +164,27 @@ class CacheDB:
                     session_data['resume_urls'] = None
             return session_data
 
+    def get_all_sessions(self) -> List[Dict]:
+        """Récupère toutes les sessions de crawl."""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.execute("SELECT * FROM crawl_sessions")
+            rows = cursor.fetchall()
+            if not rows:
+                return []
+            
+            sessions = []
+            for row in rows:
+                session_data = dict(row)
+                if session_data.get('resume_urls'):
+                    try:
+                        resume_urls = json.loads(session_data['resume_urls'])
+                        session_data['resume_urls'] = resume_urls
+                    except (json.JSONDecodeError, TypeError):
+                        session_data['resume_urls'] = None
+                sessions.append(session_data)
+            return sessions
+
     def complete_session(self, site_name: str, completed: bool = True,
                          resume_urls: list = None):
         """Termine une session de crawl"""

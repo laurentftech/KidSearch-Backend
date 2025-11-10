@@ -1395,6 +1395,67 @@ def clear_cache():
         logger.error(f"❌ Erreur lors de l'effacement du cache: {e}")
 
 
+def get_prioritized_sites(all_sites: List[Dict]) -> List[Dict]:
+    """
+    Priorise les sites pour le crawl.
+    - Score basé sur le nombre d'URLs restantes et la date du dernier crawl.
+    - Les nouveaux sites (jamais crawlés) ont la priorité maximale.
+    """
+    sessions = cache_db.get_all_sessions()
+    session_map = {s['site_name']: s for s in sessions}
+    
+    sites_with_priority = []
+
+    for site in all_sites:
+        site_name = site['name']
+        session = session_map.get(site_name)
+        
+        priority_score = 0
+        
+        if not session:
+            # Priorité maximale pour les nouveaux sites
+            priority_score = float('inf')
+            logger.debug(f"Priorité pour '{site_name}': Nouveau site (max)")
+        else:
+            # Nombre d'URLs restantes
+            resume_urls = session.get('resume_urls') or []
+            remaining_urls_count = len(resume_urls)
+            
+            # Temps depuis le dernier crawl
+            last_finished_str = session.get('finished')
+            days_since_last_crawl = 999
+            if last_finished_str:
+                try:
+                    last_finished_date = datetime.fromisoformat(last_finished_str)
+                    days_since_last_crawl = (datetime.now() - last_finished_date).days
+                except (ValueError, TypeError):
+                    pass
+
+            # Calcul du score
+            # - Priorise les sites avec beaucoup d'URLs restantes.
+            # - Augmente la priorité si le site n'a pas été crawlé récemment.
+            # - Si aucune URL restante, la priorité est faible, sauf si le crawl est ancien.
+            if remaining_urls_count > 0:
+                priority_score = remaining_urls_count * (1 + days_since_last_crawl / 30)
+            else:
+                # Site "terminé", on le revisite en fonction de son ancienneté
+                priority_score = days_since_last_crawl / 7 
+
+            logger.debug(f"Priorité pour '{site_name}': {priority_score:.2f} (URLs: {remaining_urls_count}, Jours: {days_since_last_crawl})")
+
+        sites_with_priority.append((site, priority_score))
+
+    # Trier les sites par score de priorité (décroissant)
+    sorted_sites = sorted(sites_with_priority, key=lambda x: x[1], reverse=True)
+    
+    logger.info("📈 Ordre de crawl priorisé:")
+    for i, (site, score) in enumerate(sorted_sites):
+        score_str = "MAX (nouveau)" if score == float('inf') else f"{score:.2f}"
+        logger.info(f"   {i+1}. {site['name']} (Score: {score_str})")
+
+    return [site for site, score in sorted_sites]
+
+
 async def main_async():
     args = parse_arguments()
     global embedding_provider, tei_monitor
@@ -1456,6 +1517,7 @@ async def main_async():
                     config.CONCURRENT_REQUESTS = config.MAX_WORKERS
                 else:
                     config.CONCURRENT_REQUESTS = args.workers
+            
             sites_to_crawl = sites
             if args.site:
                 sites_to_crawl = [s for s in sites if s['name'].lower() == args.site.lower()]
@@ -1465,6 +1527,10 @@ async def main_async():
                     for s in sites:
                         logger.info(f"   • {s['name']}")
                     return
+            else:
+                # Prioritize all sites if no specific site is targeted
+                sites_to_crawl = get_prioritized_sites(sites)
+
             global_status = GlobalCrawlStatus(total_sites=len(sites_to_crawl))
             global_status.start()
             logger.info(f"\n{'=' * 60}")
