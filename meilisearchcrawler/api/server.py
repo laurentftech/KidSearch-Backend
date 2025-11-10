@@ -10,9 +10,6 @@ from typing import Dict, Optional
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Configure basic logging to ensure INFO messages are displayed
-logging.basicConfig(level=logging.INFO)
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from meilisearch_python_sdk.errors import MeilisearchCommunicationError
@@ -55,6 +52,11 @@ def get_crawler_avg_indexing_time_per_page() -> float:
 async def lifespan(app: FastAPI):
     """Lifecycle manager for FastAPI app."""
     app.state = AppState()
+
+    # Configure logging level from environment (for worker processes)
+    log_level = os.getenv("LOG_LEVEL", "INFO").upper()
+    logging.getLogger("meilisearchcrawler").setLevel(log_level)
+
     logger.info("Starting KidSearch API backend...")
 
     env_path = Path(__file__).parent.parent.parent / '.env'

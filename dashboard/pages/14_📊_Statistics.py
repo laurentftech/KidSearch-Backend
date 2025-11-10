@@ -93,5 +93,5 @@ else:
 if running:
     st.markdown("---")
     st.caption(t("statistics.auto_refresh_caption_10s"))
-    time.sleep(10)
+    time.sleep(30)  # Increased from 10s to 30s for better performance on slower systems
     st.rerun()

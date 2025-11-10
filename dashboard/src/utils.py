@@ -12,6 +12,7 @@ def get_meili_client():
         return Client(MEILI_URL, MEILI_KEY)
     return None
 
+@st.cache_data(ttl=30)  # Cache for 30 seconds
 def load_sites_config():
     try:
         with open(SITES_CONFIG_FILE, "r", encoding='utf-8') as f:
@@ -28,6 +29,7 @@ def save_sites_config(config_data):
         st.error(f"Erreur lors de la sauvegarde de la configuration des sites: {e}")
         return False
 
+@st.cache_data(ttl=5)  # Cache for 5 seconds - frequently updated during crawling
 def load_status():
     try:
         with open(STATUS_FILE, "r", encoding='utf-8') as f:
@@ -35,6 +37,7 @@ def load_status():
     except (FileNotFoundError, json.JSONDecodeError):
         return None
 
+@st.cache_data(ttl=10)  # Cache for 10 seconds
 def load_crawl_history():
     try:
         with open(HISTORY_FILE, "r", encoding='utf-8') as f:
@@ -65,6 +68,7 @@ def load_cache_stats():
     # This function is deprecated as cache is now in SQLite
     return {"total_urls": 0, "sites": 0}
 
+@st.cache_data(ttl=30)  # Cache for 30 seconds
 def parse_logs_for_errors(limit=100):
     errors = []
     try:

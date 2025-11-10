@@ -142,7 +142,7 @@ if running:
 
     col1, col2 = st.columns([3, 1])
     with col1:
-        refresh_rate = st.slider(t("overview.auto_refresh_label"), 5, 60, 10, key="refresh_slider",
+        refresh_rate = st.slider(t("overview.auto_refresh_label"), 10, 120, 30, key="refresh_slider",
                                  disabled=st.session_state.pause_refresh)
     with col2:
         st.write("")

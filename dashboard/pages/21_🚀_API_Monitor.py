@@ -49,13 +49,13 @@ API_BASE_URL = f"http://{API_HOST}:{API_PORT}/api"
 # URL to display to user (may not include port if behind reverse proxy)
 API_DISPLAY_URL = f"http://{API_DISPLAY_HOST}" + (f":{API_PORT}" if API_DISPLAY_HOST == API_HOST else "") + "/api"
 
-@st.cache_data(ttl=5) # Cache for 5 seconds
+@st.cache_data(ttl=15) # Cache for 15 seconds - increased for better performance
 def get_api_data():
     """Check API health and get statistics."""
     try:
         headers = {'Cache-Control': 'no-cache', 'Pragma': 'no-cache'}
-        health_response = requests.get(f"{API_BASE_URL}/health", timeout=2, headers=headers)
-        stats_response = requests.get(f"{API_BASE_URL}/stats", timeout=2, headers=headers)
+        health_response = requests.get(f"{API_BASE_URL}/health", timeout=5, headers=headers)
+        stats_response = requests.get(f"{API_BASE_URL}/stats", timeout=5, headers=headers)
 
         health_data = health_response.json() if health_response.status_code == 200 else None
         stats_data = stats_response.json() if stats_response.status_code == 200 else None
@@ -93,14 +93,20 @@ with col2:
     st.metric("Workers", os.getenv("API_WORKERS", "4"))
 
 with col3:
-    meili_client = get_meili_client()
-    if meili_client:
-        try:
-            stats = meili_client.index(INDEX_NAME).get_stats()
-            num_docs = getattr(stats, 'number_of_documents', 0)
-            st.metric("Documents", f"{num_docs:,}")
-        except Exception:
-            st.metric("Documents", "N/A")
+    @st.cache_data(ttl=30, show_spinner=False)
+    def get_meilisearch_doc_count():
+        meili_client = get_meili_client()
+        if meili_client:
+            try:
+                stats = meili_client.index(INDEX_NAME).get_stats()
+                return getattr(stats, 'number_of_documents', 0)
+            except Exception:
+                return None
+        return None
+
+    num_docs = get_meilisearch_doc_count()
+    if num_docs is not None:
+        st.metric("Documents", f"{num_docs:,}")
     else:
         st.metric("Documents", "N/A")
 
@@ -354,7 +360,7 @@ col1, col2 = st.columns([3, 1])
 with col1:
     refresh_rate = st.slider(
         "Rafraîchissement automatique (secondes)",
-        5, 60, 10, # Default to 10s
+        10, 120, 30, # Default to 30s for better performance
         key="api_refresh_slider",
         disabled=st.session_state.pause_api_refresh
     )

@@ -20,6 +20,11 @@ logging.basicConfig(
     level=log_level,
     format="[%(asctime)s] [%(levelname)s] [%(name)s:%(lineno)d] %(message)s",
 )
+
+# Force log level for application loggers (uvicorn may override root logger)
+app_logger = logging.getLogger("meilisearchcrawler")
+app_logger.setLevel(log_level)
+
 logger = logging.getLogger(__name__)
 
 

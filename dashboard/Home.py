@@ -135,15 +135,23 @@ with st.sidebar:
     else:
         st.metric(t('api_status'), f"🔴 {t('disabled')}")
 
-    # Métriques Meilisearch
-    meili_client = get_meili_client()
-    if meili_client:
-        try:
-            stats = meili_client.index(INDEX_NAME).get_stats()
-            num_docs = getattr(stats, 'number_of_documents', 0)
-            st.metric(t('meilisearch_docs'), f"{num_docs:,}")
-        except Exception:
-            st.metric(t('meilisearch_docs'), "N/A")
+    # Métriques Meilisearch (cached for performance)
+    @st.cache_data(ttl=30, show_spinner=False)
+    def get_meilisearch_doc_count():
+        meili_client = get_meili_client()
+        if meili_client:
+            try:
+                stats = meili_client.index(INDEX_NAME).get_stats()
+                return getattr(stats, 'number_of_documents', 0)
+            except Exception:
+                return None
+        return None
+
+    num_docs = get_meilisearch_doc_count()
+    if num_docs is not None:
+        st.metric(t('meilisearch_docs'), f"{num_docs:,}")
+    else:
+        st.metric(t('meilisearch_docs'), "N/A")
 
     st.markdown(t('api_pages_info'))
 
