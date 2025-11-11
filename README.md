@@ -38,7 +38,7 @@ This combination creates a powerful and flexible search backend, capable of deli
 
 - Python 3.8+
 - A running Meilisearch instance (v1.0 or higher).
-- A Google Gemini API Key (if using the embeddings feature).
+- A Google Gemini API key (if using the embeddings feature).
 
 ## 1. Setting up Meilisearch
 
@@ -160,7 +160,7 @@ The `config/sites.yml` file allows you to define a list of sites to crawl. Each 
 
 - `name`: (String) The name of the site, used for filtering in Meilisearch.
 - `crawl`: (String) The starting URL for the crawl.
-- `type`: (String) The type of content. Can be `html`, `json`, or `mediawiki`.
+- `type`: (String) The type of content. Can be `html`, `json`, ou `mediawiki`.
 - `max_pages`: (Integer) The maximum number of pages to crawl. Set to `0` or omit for no limit.
 - `depth`: (Integer) For `html` sites, the maximum depth to follow links from the starting URL.
 - `delay`: (Float, optional) A specific delay in seconds between requests for this site, overriding the default. Useful for sensitive servers.
@@ -187,76 +187,122 @@ This type is optimized for sites running on MediaWiki software (like Wikipedia, 
 
 ## 5. Dashboard Authentication
 
-The dashboard supports multiple authentication methods, which can be combined.
+The dashboard supports multiple authentication methods. You can enable one or more.
+
+### Choosing Authentication Providers
+
+The `AUTH_PROVIDERS` environment variable controls which authentication methods are enabled.
+
+-   **Explicit Configuration (Recommended)**: To avoid ambiguity, explicitly list the providers you want to use.
+    ```bash
+    # Example: Enable Proxy and Simple Password
+    AUTH_PROVIDERS=proxy,simple
+    ```
+    -   To use **only one method** (like proxy), set it as the only provider:
+        ```bash
+        # Force ONLY proxy authentication
+        AUTH_PROVIDERS=proxy
+        ```
+
+-   **Automatic Detection**: If `AUTH_PROVIDERS` is left empty, the application will automatically enable any provider that has its corresponding environment variables set. This can be useful for testing but is not recommended for production, as it might enable more methods than you intend.
 
 ### 🛡️ Proxy Authentication (Recommended for Production)
 
-This is the most secure and flexible method. It delegates authentication to a reverse proxy (like Caddy, Traefik, or Nginx) that injects user information into HTTP headers. This avoids double login prompts.
+This is the most secure and flexible method. It delegates authentication to a reverse proxy (like Caddy with AuthCrunch) that handles user authentication.
+
+**How it Works:**
+1. The proxy (Caddy with AuthCrunch) authenticates the user via OIDC.
+2. AuthCrunch automatically injects user information into HTTP headers using the `inject headers with claims` directive.
+3. The dashboard reads these headers to identify the authenticated user.
+4. The dashboard calls the API to generate a JWT token for subsequent API requests.
+
+This method is highly secure as it prevents direct access to the dashboard and leverages the proxy's authentication mechanisms.
 
 **Configuration (`.env`):**
 ```bash
+# Force proxy as the only authentication method
+AUTH_PROVIDERS=proxy
+
 # Enable proxy authentication
 AUTH_PROXY_ENABLED=true
 
-# Header containing the user's email (e.g., X-Forwarded-User, X-Token-User-Email)
-AUTH_PROXY_EMAIL_HEADER=X-Token-User-Email
-
-# Header containing the user's display name (e.g., X-Forwarded-User-Name, X-Token-User-Name)
-AUTH_PROXY_NAME_HEADER=X-Token-User-Name
-
 # URL to redirect to on logout (e.g., the proxy's logout endpoint)
 AUTH_PROXY_LOGOUT_URL=/
+
+# JWT secret for API authentication (generate with command below)
+JWT_SECRET_KEY=your_jwt_secret_here
+
+# API URL for Dashboard to communicate with API
+API_URL=http://kidsearch-all:8080/api
+```
+
+**How to Generate JWT Secret:**
+```sh
+python -c "import secrets; print(secrets.token_hex(32))"
+```
+
+Or use the provided script:
+```sh
+python scripts/generate_secrets.py
 ```
 
 **Example with Caddy & AuthCrunch:**
-Here is a Caddyfile snippet showing how to configure AuthCrunch to secure the dashboard:
 ```caddy
+{
+    security {
+        authorization policy admin_only {
+            set auth url https://auth.example.com
+            allow roles authp/admin
+            crypto key verify {env.JWT_SECRET_KEY}
+
+            # IMPORTANT: This directive injects user claims into HTTP headers
+            inject headers with claims
+        }
+    }
+}
+
 # === KIDSEARCH DASHBOARD ===
-http://kidsearch-admin.example.com {
-    authorize with your_auth_policy
-    reverse_proxy kidsearch-dashboard:8501 {
-        # Inject user info into headers
-        header_up X-Token-User-Email {http.auth.user.claims.email}
-        header_up X-Token-User-Name {http.auth.user.claims.name}
+https://kidsearch-admin.example.com {
+    # 1. Authorize the user with AuthCrunch
+    authorize with admin_only
+
+    # 2. Configure logging
+    log {
+        output file /data/logs/kidsearch-dashboard-access.log
+    }
+
+    # 3. Reverse proxy to the dashboard
+    # AuthCrunch automatically injects these headers:
+    # - X-Token-User-Email
+    # - X-Token-User-Name
+    # - X-Token-Subject
+    # - X-Token-User-Roles
+    reverse_proxy kidsearch-all:8501 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+
+        # WebSocket support for Streamlit
+        header_up Connection {>Connection}
+        header_up Upgrade {>Upgrade}
     }
 }
 ```
 
+**Documentation:**
+- Full Caddyfile example: `docs/Caddyfile`
+- Complete guide: `docs/AUTHENTICATION_FINAL.md`
+- Deployment checklist: `docs/DEPLOYMENT_CHECKLIST.md`
+
 ### 🧩 OIDC, Google, GitHub & Simple Password
 
-KidSearch also natively supports:
-- Any **OpenID Connect (OIDC)** provider (Pocket ID, Authentik, Keycloak)
-- **Google OAuth**
-- **GitHub OAuth**
-- **Simple Password**
+You can also enable other providers. If multiple are enabled via `AUTH_PROVIDERS`, users will see a selection screen.
 
-You can enable one or more of these methods. If multiple are enabled, users will see a selection screen.
-
-#### OIDC Configuration (Recommended for Self-Hosted)
-
-For any standard OIDC provider, simply provide the following in your `.env`:
-```bash
-OIDC_ISSUER=https://auth.example.com
-OIDC_CLIENT_ID=your_client_id
-OIDC_CLIENT_SECRET=your_client_secret
-OIDC_REDIRECT_URI=http://localhost:8501/
-```
-Endpoints are automatically discovered.
-
-#### Google & GitHub OAuth
-
-Configure the following in your `.env` file:
-```bash
-# For Google
-GOOGLE_OAUTH_CLIENT_ID=your_client_id.apps.googleusercontent.com
-GOOGLE_OAUTH_CLIENT_SECRET=your_client_secret
-GOOGLE_OAUTH_REDIRECT_URI=http://localhost:8501/
-
-# For GitHub
-GITHUB_OAUTH_CLIENT_ID=your_github_client_id
-GITHUB_OAUTH_CLIENT_SECRET=your_github_client_secret
-GITHUB_OAUTH_REDIRECT_URI=http://localhost:8501/
-```
+- **OIDC**: `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`
+- **Google**: `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`
+- **GitHub**: `GITHUB_OAUTH_CLIENT_ID`, `GITHUB_OAUTH_CLIENT_SECRET`
+- **Simple Password**: `DASHBOARD_PASSWORD`
 
 ### Email Whitelist
 

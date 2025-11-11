@@ -186,76 +186,122 @@ Ce type est optimisé pour les sites utilisant le logiciel MediaWiki (comme Wiki
 
 ## 5. Authentification du Tableau de Bord
 
-Le tableau de bord prend en charge plusieurs méthodes d'authentification, qui peuvent être combinées.
+Le tableau de bord prend en charge plusieurs méthodes d'authentification. Vous pouvez en activer une ou plusieurs.
+
+### Choix des Fournisseurs d'Authentification
+
+La variable d'environnement `AUTH_PROVIDERS` contrôle les méthodes d'authentification activées.
+
+-   **Configuration Explicite (Recommandé)** : Pour éviter toute ambiguïté, listez explicitement les fournisseurs que vous souhaitez utiliser.
+    ```bash
+    # Exemple : Activer le Proxy et le Mot de passe simple
+    AUTH_PROVIDERS=proxy,simple
+    ```
+    -   Pour n'utiliser **qu'une seule méthode** (comme le proxy), définissez-la comme unique fournisseur :
+        ```bash
+        # Forcer UNIQUEMENT l'authentification par proxy
+        AUTH_PROVIDERS=proxy
+        ```
+
+-   **Détection Automatique** : Si `AUTH_PROVIDERS` est laissé vide, l'application activera automatiquement tout fournisseur dont les variables d'environnement correspondantes sont définies. C'est utile pour les tests mais déconseillé en production, car cela pourrait activer plus de méthodes que prévu.
 
 ### 🛡️ Authentification par Proxy (Recommandé pour la Production)
 
-C'est la méthode la plus sécurisée et flexible. Elle délègue l'authentification à un reverse proxy (comme Caddy, Traefik ou Nginx) qui injecte les informations de l'utilisateur dans les en-têtes HTTP. Cela évite les doubles invites de connexion.
+C'est la méthode la plus sécurisée et flexible. Elle délègue l'authentification à un reverse proxy (comme Caddy avec AuthCrunch) qui gère l'authentification des utilisateurs.
+
+**Comment ça marche :**
+1. Le proxy (Caddy avec AuthCrunch) authentifie l'utilisateur via OIDC.
+2. AuthCrunch injecte automatiquement les informations utilisateur dans les en-têtes HTTP via la directive `inject headers with claims`.
+3. Le tableau de bord lit ces en-têtes pour identifier l'utilisateur authentifié.
+4. Le tableau de bord appelle l'API pour générer un token JWT pour les requêtes API ultérieures.
+
+Cette méthode est hautement sécurisée car elle empêche l'accès direct au tableau de bord et s'appuie sur les mécanismes d'authentification du proxy.
 
 **Configuration (`.env`):**
 ```bash
+# Forcer le proxy comme seule méthode d'authentification
+AUTH_PROVIDERS=proxy
+
 # Activer l'authentification par proxy
 AUTH_PROXY_ENABLED=true
 
-# En-tête contenant l'email de l'utilisateur (ex: X-Forwarded-User, X-Token-User-Email)
-AUTH_PROXY_EMAIL_HEADER=X-Token-User-Email
-
-# En-tête contenant le nom d'affichage de l'utilisateur (ex: X-Forwarded-User-Name, X-Token-User-Name)
-AUTH_PROXY_NAME_HEADER=X-Token-User-Name
-
-# URL de redirection lors de la déconnexion (ex: le point de terminaison de déconnexion du proxy)
+# URL de redirection lors de la déconnexion (par ex. le point de terminaison de déconnexion du proxy)
 AUTH_PROXY_LOGOUT_URL=/
+
+# Secret JWT pour l'authentification API (générer avec la commande ci-dessous)
+JWT_SECRET_KEY=votre_secret_jwt_ici
+
+# URL de l'API pour la communication Dashboard vers API
+API_URL=http://kidsearch-all:8080/api
+```
+
+**Comment Générer le Secret JWT :**
+```sh
+python -c "import secrets; print(secrets.token_hex(32))"
+```
+
+Ou utilisez le script fourni :
+```sh
+python scripts/generate_secrets.py
 ```
 
 **Exemple avec Caddy & AuthCrunch:**
-Voici un extrait de Caddyfile montrant comment configurer AuthCrunch pour sécuriser le tableau de bord :
 ```caddy
+{
+    security {
+        authorization policy admin_only {
+            set auth url https://auth.example.com
+            allow roles authp/admin
+            crypto key verify {env.JWT_SECRET_KEY}
+
+            # IMPORTANT: Cette directive injecte les claims utilisateur dans les en-têtes HTTP
+            inject headers with claims
+        }
+    }
+}
+
 # === TABLEAU DE BORD KIDSEARCH ===
-http://kidsearch-admin.example.com {
-    authorize with your_auth_policy
-    reverse_proxy kidsearch-dashboard:8501 {
-        # Injecter les informations utilisateur dans les en-têtes
-        header_up X-Token-User-Email {http.auth.user.claims.email}
-        header_up X-Token-User-Name {http.auth.user.claims.name}
+https://kidsearch-admin.example.com {
+    # 1. Autoriser l'utilisateur avec AuthCrunch
+    authorize with admin_only
+
+    # 2. Configurer la journalisation
+    log {
+        output file /data/logs/kidsearch-dashboard-access.log
+    }
+
+    # 3. Reverse proxy vers le tableau de bord
+    # AuthCrunch injecte automatiquement ces en-têtes :
+    # - X-Token-User-Email
+    # - X-Token-User-Name
+    # - X-Token-Subject
+    # - X-Token-User-Roles
+    reverse_proxy kidsearch-all:8501 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+
+        # Support WebSocket pour Streamlit
+        header_up Connection {>Connection}
+        header_up Upgrade {>Upgrade}
     }
 }
 ```
 
+**Documentation:**
+- Exemple complet de Caddyfile : `docs/Caddyfile`
+- Guide complet : `docs/AUTHENTICATION_FINAL.md`
+- Checklist de déploiement : `docs/DEPLOYMENT_CHECKLIST.md`
+
 ### 🧩 OIDC, Google, GitHub & Mot de Passe Simple
 
-KidSearch prend également en charge nativement :
-- Tout fournisseur **OpenID Connect (OIDC)** (Pocket ID, Authentik, Keycloak)
-- **Google OAuth**
-- **GitHub OAuth**
-- **Mot de passe simple**
+Vous pouvez également activer d'autres fournisseurs. Si plusieurs sont activés via `AUTH_PROVIDERS`, les utilisateurs verront un écran de sélection.
 
-Vous pouvez activer une ou plusieurs de ces méthodes. Si plusieurs sont activées, les utilisateurs verront un écran de sélection.
-
-#### Configuration OIDC (Recommandé pour l'auto-hébergement)
-
-Pour tout fournisseur OIDC standard, fournissez simplement ce qui suit dans votre `.env` :
-```bash
-OIDC_ISSUER=https://auth.example.com
-OIDC_CLIENT_ID=votre_client_id
-OIDC_CLIENT_SECRET=votre_client_secret
-OIDC_REDIRECT_URI=http://localhost:8501/
-```
-Les points de terminaison sont découverts automatiquement.
-
-#### Google & GitHub OAuth
-
-Configurez ce qui suit dans votre fichier `.env` :
-```bash
-# Pour Google
-GOOGLE_OAUTH_CLIENT_ID=votre_client_id.apps.googleusercontent.com
-GOOGLE_OAUTH_CLIENT_SECRET=votre_client_secret
-GOOGLE_OAUTH_REDIRECT_URI=http://localhost:8501/
-
-# Pour GitHub
-GITHUB_OAUTH_CLIENT_ID=votre_github_client_id
-GITHUB_OAUTH_CLIENT_SECRET=votre_github_client_secret
-GITHUB_OAUTH_REDIRECT_URI=http://localhost:8501/
-```
+- **OIDC** : `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`
+- **Google** : `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`
+- **GitHub** : `GITHUB_OAUTH_CLIENT_ID`, `GITHUB_OAUTH_CLIENT_SECRET`
+- **Mot de passe simple** : `DASHBOARD_PASSWORD`
 
 ### Liste d'Emails Autorisés
 

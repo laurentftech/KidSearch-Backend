@@ -3,12 +3,13 @@ Routes d'authentification pour l'API FastAPI.
 Gère le login via OIDC et la génération de JWT.
 """
 
+import os
 import logging
 from datetime import timedelta
 from typing import Optional
 from urllib.parse import urlencode
 from fastapi import APIRouter, HTTPException, Query, Request
-from fastapi.responses import RedirectResponse, JSONResponse
+from fastapi.responses import RedirectResponse, JSONResponse, HTMLResponse
 from pydantic import BaseModel
 
 from meilisearchcrawler.auth_config import get_auth_config, AuthProvider
@@ -38,38 +39,20 @@ class UserInfoResponse(BaseModel):
 async def login(redirect_uri: Optional[str] = Query(None, description="Optional redirect URI after login")):
     """
     Initie le flux d'authentification OIDC.
-
-    Args:
-        redirect_uri: URI de redirection après l'authentification (optionnel)
-
-    Returns:
-        Redirection vers le provider OIDC pour l'authentification
     """
     auth_config = get_auth_config()
-
-    # Vérifier si l'authentification est activée
-    if not auth_config.is_enabled:
-        raise HTTPException(status_code=400, detail="Authentication is disabled")
-
-    # Vérifier si OIDC est configuré
-    if not auth_config.has_provider(AuthProvider.OIDC):
+    if not auth_config.is_enabled or not auth_config.has_provider(AuthProvider.OIDC):
         raise HTTPException(status_code=400, detail="OIDC authentication is not configured")
 
     config = auth_config.get_oidc_config()
-
-    # URI de callback
     callback_uri = redirect_uri or os.getenv("OIDC_API_REDIRECT_URI", "http://localhost:8080/api/auth/callback")
-
-    # Construire l'URL d'autorisation
     auth_params = {
         "client_id": config["client_id"],
         "redirect_uri": callback_uri,
         "response_type": "code",
         "scope": " ".join(config["scopes"]),
     }
-
     auth_url = f"{config['authorize_url']}?{urlencode(auth_params)}"
-
     return RedirectResponse(url=auth_url)
 
 
@@ -80,48 +63,27 @@ async def callback(
 ):
     """
     Callback OAuth2 depuis le provider OIDC.
-    Échange le code contre un access token et génère un JWT.
-
-    Args:
-        code: Code d'autorisation depuis le provider OIDC
-        redirect_uri: URI de redirection (optionnel)
-
-    Returns:
-        JWT pour accéder à l'API
     """
     auth_config = get_auth_config()
-
     if not auth_config.has_provider(AuthProvider.OIDC):
         raise HTTPException(status_code=400, detail="OIDC authentication is not configured")
 
-    # URI de callback utilisée pour l'échange de code
     callback_uri = redirect_uri or os.getenv("OIDC_API_REDIRECT_URI", "http://localhost:8080/api/auth/callback")
-
-    # Échanger le code contre un access token
     token_data = await oidc_client.exchange_code_for_token(code, callback_uri)
-
     if not token_data:
         raise HTTPException(status_code=400, detail="Failed to exchange code for token")
 
-    access_token = token_data.get("access_token")
-
-    # Récupérer les informations utilisateur
-    user_info = await oidc_client.get_user_info(access_token)
-
+    user_info = await oidc_client.get_user_info(token_data.get("access_token"))
     if not user_info:
         raise HTTPException(status_code=400, detail="Failed to fetch user info")
 
-    # Créer un JWT pour notre API
     jwt_data = {
         "sub": user_info.get("sub"),
         "name": user_info.get("name", user_info.get("preferred_username", "User")),
         "email": user_info.get("email", ""),
         "auth_method": "oidc",
     }
-
     jwt_token = jwt_handler.create_access_token(jwt_data)
-
-    # Retourner le JWT
     return TokenResponse(
         access_token=jwt_token,
         token_type="bearer",
@@ -129,40 +91,47 @@ async def callback(
     )
 
 
-@router.post("/auth/token")
-async def get_token(username: str, password: str):
+@router.post("/auth/token/headers")
+async def issue_token_for_proxy_headers(request: Request):
     """
-    Obtenir un JWT via authentification simple (username/password).
-    Utilisé uniquement si AUTH_PROVIDERS inclut 'simple'.
+    Point de terminaison pour l'authentification par proxy (authcrunch/Caddy).
+    Génère un JWT basé sur les headers injectés par authcrunch.
 
-    Args:
-        username: Nom d'utilisateur (ignoré pour l'instant)
-        password: Mot de passe
+    Headers attendus (injectés automatiquement par authcrunch avec "inject headers with claims"):
+    - X-Token-User-Email: Email de l'utilisateur (vérifié par authcrunch)
+    - X-Token-User-Name: Nom de l'utilisateur (optionnel)
 
-    Returns:
-        JWT pour accéder à l'API
+    Sécurité: Cette route doit UNIQUEMENT être accessible depuis le réseau interne
+    ou via Caddy. En production, configurez votre firewall pour bloquer l'accès direct.
     """
     auth_config = get_auth_config()
+    proxy_config = auth_config.get_proxy_config()
+    if not proxy_config:
+        raise HTTPException(status_code=400, detail="Proxy authentication is not configured")
 
-    # Vérifier si l'authentification simple est activée
-    if not auth_config.has_provider(AuthProvider.SIMPLE):
-        raise HTTPException(status_code=400, detail="Simple authentication is not configured")
+    # Récupérer l'email et le nom depuis les headers authcrunch
+    auth_email = request.headers.get("X-Token-User-Email")
+    auth_name = request.headers.get("X-Token-User-Name")
 
-    simple_password = auth_config.get_simple_password()
+    if not auth_email:
+        logger.error(f"Proxy auth failed: No email header. Headers: {dict(request.headers)}")
+        raise HTTPException(status_code=401, detail="Email header not provided by proxy")
 
-    # Vérifier le mot de passe
-    if password != simple_password:
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+    # Vérifier que l'email est autorisé (si whitelist configurée)
+    if not auth_config.is_email_allowed(auth_email):
+        logger.warning(f"Proxy auth rejected: Email not in whitelist: {auth_email}")
+        raise HTTPException(status_code=403, detail="Access denied: Email not authorized")
 
-    # Créer un JWT
+    # Générer le JWT
     jwt_data = {
-        "sub": "dashboard_user",
-        "name": username or "Dashboard User",
-        "email": "",
-        "auth_method": "simple",
+        "sub": auth_email,
+        "name": auth_name or auth_email,
+        "email": auth_email,
+        "auth_method": "proxy",
     }
-
     jwt_token = jwt_handler.create_access_token(jwt_data)
+
+    logger.info(f"JWT token issued for proxy user: {auth_email}")
 
     return TokenResponse(
         access_token=jwt_token,
@@ -175,16 +144,9 @@ async def get_token(username: str, password: str):
 async def get_current_user_info(request: Request):
     """
     Récupère les informations de l'utilisateur authentifié.
-
-    Returns:
-        Informations utilisateur depuis le JWT
     """
     from ..auth import get_current_user
-    from fastapi import Depends
-
-    # Cette route nécessite l'authentification
     user = await get_current_user(request.headers.get("Authorization"))
-
     return UserInfoResponse(
         sub=user.get("sub", ""),
         name=user.get("name", ""),
@@ -197,10 +159,6 @@ async def get_current_user_info(request: Request):
 async def logout():
     """
     Déconnexion (invalide le token côté client).
-    Avec JWT, la déconnexion se fait côté client en supprimant le token.
-
-    Returns:
-        Message de confirmation
     """
     return {"message": "Logged out successfully. Please delete your access token."}
 

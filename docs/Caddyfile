@@ -1,0 +1,121 @@
+# Caddyfile pour KidSearch avec authentification authcrunch
+# Documentation: https://docs.authcrunch.com/
+
+# Configuration globale
+{
+    order authenticate before respond
+    order authorize before basicauth
+
+    security {
+        # Configuration OAuth identity provider
+        oauth identity provider generic {
+            realm generic
+            driver generic
+            client_id {env.OIDC_CLIENT_ID}
+            client_secret {env.OIDC_CLIENT_SECRET}
+            scopes openid email profile
+            base_auth_url {env.OIDC_ISSUER}/authorize
+            metadata_url {env.OIDC_ISSUER}/.well-known/openid-configuration
+        }
+
+        # Configuration du portail d'authentification
+        authentication portal myportal {
+            crypto default token lifetime 3600
+            crypto key sign-verify {env.JWT_SECRET_KEY}
+            enable identity provider generic
+            cookie domain gandulf78.synology.me
+            ui {
+                links {
+                    "KidSearch Admin" /
+                }
+            }
+            transform user {
+                match email laurent@example.com
+                action add role authp/admin
+            }
+        }
+
+        # Configuration de la politique d'autorisation
+        authorization policy admin_only {
+            set auth url https://auth.gandulf78.synology.me
+            allow roles authp/admin authp/user
+            crypto key verify {env.JWT_SECRET_KEY}
+
+            # SOLUTION OFFICIELLE: Injecter les claims JWT dans les headers HTTP
+            inject headers with claims
+
+            # Whitelist d'emails autorisés
+            allow email @gandulf78.synology.me
+            allow email laurent@example.com
+        }
+    }
+}
+
+# Portail d'authentification authcrunch
+https://auth.gandulf78.synology.me {
+    log {
+        output file /data/logs/auth-portal-access.log
+    }
+
+    authenticate with myportal
+}
+
+# === KIDSEARCH DASHBOARD ===
+https://kidsearch-admin.gandulf78.synology.me {
+    # 1. Autoriser l'utilisateur avec authcrunch
+    authorize with admin_only
+
+    # 2. Configuration du logging
+    log {
+        output file /data/logs/kidsearch-dashboard-access.log
+    }
+
+    # 3. Reverse proxy vers le dashboard
+    # authcrunch injecte automatiquement les headers:
+    # - X-Token-User-Email
+    # - X-Token-User-Name
+    # - X-Token-Subject
+    # - X-Token-User-Roles
+    reverse_proxy kidsearch-all:8501 {
+        # Headers standards
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+
+        # Support WebSocket pour Streamlit
+        header_up Connection {>Connection}
+        header_up Upgrade {>Upgrade}
+    }
+}
+
+# === KIDSEARCH API ===
+https://kidsearch-api.gandulf78.synology.me {
+    # Pas d'authentification sur l'API car elle gère elle-même les JWT
+    log {
+        output file /data/logs/kidsearch-api-access.log
+    }
+
+    reverse_proxy kidsearch-all:8080 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+}
+
+# === MEILISEARCH (optionnel) ===
+https://kidsearch-search.gandulf78.synology.me {
+    authorize with admin_only
+
+    log {
+        output file /data/logs/meilisearch-access.log
+    }
+
+    reverse_proxy meilisearch:7700 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+}

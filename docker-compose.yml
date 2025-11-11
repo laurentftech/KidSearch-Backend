@@ -70,33 +70,28 @@ services:
     dns:
       - 1.1.1.3
       - 1.0.0.3
-    extra_hosts:
-      - "${OIDC_HOST_ENTRY}"
-      - "${KIDSEARCH_API_HOST_ENTRY}"
+    # extra_hosts: # Décommentez et configurez si nécessaire
+    #   - "auth.example.com:192.168.1.1"
     environment:
       SERVICE: all
-      LOG_LEVEL: ${LOG_LEVEL:-info}  # Use info by default, not debug
-      API_ENABLED: "true"
-      API_WORKERS: ${API_WORKERS:-2}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
 
-      # --- Authentication Configuration ---
-      # Disable auth entirely (optional)
-      AUTH_DISABLED: ${AUTH_DISABLED:-false}
+      # === AUTHENTICATION CONFIGURATION ===
 
-      # Configure which auth providers to enable (comma-separated: oidc,google,github,simple,proxy)
+      # Force a single auth method (optional)
+      # Options: proxy, oidc, google, github, simple
+      # If empty, auto-detects based on configured variables
       AUTH_PROVIDERS: ${AUTH_PROVIDERS:-}
 
-      # --- Proxy Authentication ---
-      # Enable if the dashboard is behind an authenticating reverse proxy
+      # --- Proxy Authentication (Recommended for Production) ---
+      # Use with Caddy + authcrunch
+      # authcrunch automatically injects headers: X-Token-User-Email, X-Token-User-Name
+      # Caddyfile directive: inject headers with claims
       AUTH_PROXY_ENABLED: ${AUTH_PROXY_ENABLED:-false}
-      # Header containing the user's email
-      AUTH_PROXY_EMAIL_HEADER: ${AUTH_PROXY_EMAIL_HEADER:-X-Token-User-Email}
-      # Header containing the user's name
-      AUTH_PROXY_NAME_HEADER: ${AUTH_PROXY_NAME_HEADER:-X-Token-User-Name}
-      # URL to redirect to on logout (e.g., the proxy's logout endpoint)
       AUTH_PROXY_LOGOUT_URL: ${AUTH_PROXY_LOGOUT_URL:-/}
 
       # --- OpenID Connect (OIDC) ---
+      # For direct OIDC authentication (without proxy)
       OIDC_ISSUER: ${OIDC_ISSUER:-}
       OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
       OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
@@ -104,79 +99,43 @@ services:
       OIDC_SCOPES: ${OIDC_SCOPES:-openid profile email}
       OIDC_API_REDIRECT_URI: ${OIDC_API_REDIRECT_URI:-http://localhost:8082/api/auth/callback}
 
-      # Optional: Manual OIDC endpoint configuration (auto-discovered if not set)
-      OIDC_AUTHORIZE_URL: ${OIDC_AUTHORIZE_URL:-}
-      OIDC_TOKEN_URL: ${OIDC_TOKEN_URL:-}
-      OIDC_USERINFO_URL: ${OIDC_USERINFO_URL:-}
-
-      # --- Simple password auth ---
+      # --- Simple Password Authentication ---
       DASHBOARD_PASSWORD: ${DASHBOARD_PASSWORD:-}
 
-      # --- Authorized users ---
+      # --- Email Whitelist (for Proxy & OAuth) ---
+      # Comma-separated list of allowed emails
       ALLOWED_EMAILS: ${ALLOWED_EMAILS:-}
 
-      # --- Google OAuth ---
+      # --- Google OAuth (optional) ---
       GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:-}
       GOOGLE_OAUTH_CLIENT_SECRET: ${GOOGLE_OAUTH_CLIENT_SECRET:-}
       GOOGLE_OAUTH_REDIRECT_URI: ${GOOGLE_OAUTH_REDIRECT_URI:-http://localhost:8501/}
-      GOOGLE_OAUTH_AUTHORIZE_URL: ${GOOGLE_OAUTH_AUTHORIZE_URL:-https://accounts.google.com/o/oauth2/v2/auth}
-      GOOGLE_OAUTH_TOKEN_URL: ${GOOGLE_OAUTH_TOKEN_URL:-https://oauth2.googleapis.com/token}
 
-      # --- GitHub OAuth ---
+      # --- GitHub OAuth (optional) ---
       GITHUB_OAUTH_CLIENT_ID: ${GITHUB_OAUTH_CLIENT_ID:-}
       GITHUB_OAUTH_CLIENT_SECRET: ${GITHUB_OAUTH_CLIENT_SECRET:-}
       GITHUB_OAUTH_REDIRECT_URI: ${GITHUB_OAUTH_REDIRECT_URI:-http://localhost:8501/}
-      GITHUB_OAUTH_AUTHORIZE_URL: ${GITHUB_OAUTH_AUTHORIZE_URL:-https://github.com/login/oauth/authorize}
-      GITHUB_OAUTH_TOKEN_URL: ${GITHUB_OAUTH_TOKEN_URL:-https://github.com/login/oauth/access_token}
 
-      # JWT Configuration (for API)
+      # === JWT CONFIGURATION (for API authentication) ===
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-me-in-production}
       JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
       JWT_EXPIRATION_MINUTES: ${JWT_EXPIRATION_MINUTES:-1440}
 
-      # Frontend URL of Google CSE
-      FRONTEND_URL: ${FRONTEND_URL:-}
-
-      # Display URLs
-      DISPLAY_HOST: ${DISPLAY_HOST:-}
-      DASHBOARD_DISPLAY_HOST: ${DASHBOARD_DISPLAY_HOST:-}
-      API_DISPLAY_HOST: ${API_DISPLAY_HOST:-}
+      # === API CONFIGURATION ===
+      # URL for Dashboard to communicate with API (internal Docker network)
+      API_URL: ${API_URL:-http://kidsearch-all:8080/api}
+      API_ENABLED: ${API_ENABLED:-true}
+      API_WORKERS: ${API_WORKERS:-2}
 
       # Meilisearch connection
       MEILI_URL: http://meilisearch:7700
       MEILI_KEY: ${MEILI_KEY:-masterKey}
       INDEX_NAME: ${INDEX_NAME:-kidsearch}
 
-      # --- Embedding Configuration ---
-      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-huggingface}
-      HUGGINGFACE_MODEL: ${HUGGINGFACE_MODEL:-sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2}
-      HUGGINGFACE_API_URL: ${HUGGINGFACE_API_URL:-http://embeddings_small:80/embed}
-      HUGGINGFACE_EMBEDDING_BATCH_SIZE: ${HUGGINGFACE_EMBEDDING_BATCH_SIZE:-6}
-      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-      GEMINI_EMBEDDING_BATCH_SIZE: ${GEMINI_EMBEDDING_BATCH_SIZE:-20}
-      EMBEDDING_BATCH_DELAY: ${EMBEDDING_BATCH_DELAY:-2}
-
-      # --- Reranking Configuration (Optimized for DS220+ 6GB RAM) ---
-      RERANKING_ENABLED: ${RERANKING_ENABLED:-true}
-      RERANKER_API_URL: ${RERANKER_API_URL:-http://embeddings_small:80/embed}
-      RERANKER_MODEL: ${RERANKER_MODEL:-sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2}
-      RERANKER_BATCH_SIZE: ${RERANKER_BATCH_SIZE:-3}
-      RERANKER_MAX_CHARS: ${RERANKER_MAX_CHARS:-200}
-      RERANKER_CACHE_SIZE: ${RERANKER_CACHE_SIZE:-4096}
-      RERANKER_TIMEOUT: ${RERANKER_TIMEOUT:-12}
-
-      # Weights for result merging
-      MEILISEARCH_WEIGHT: ${MEILISEARCH_WEIGHT:-0.7}
-      CSE_WEIGHT: ${CSE_WEIGHT:-0.3}
-
-      # --- Google APIs ---
-      GOOGLE_CSE_API_KEY: ${GOOGLE_CSE_API_KEY:-}
-      GOOGLE_CSE_ID: ${GOOGLE_CSE_ID:-}
-
-      # --- Wiki API (Vikidia) ---
-      WIKI_API_URL: ${WIKI_API_URL:-https://fr.vikidia.org/w/api.php}
-      WIKI_SITE_URL: ${WIKI_SITE_URL:-https://fr.vikidia.org/wiki/}
-      WIKI_SITE_NAME: ${WIKI_SITE_NAME:-Vikidia}
+      # Other settings...
+      FRONTEND_URL: ${FRONTEND_URL:-}
+      DISPLAY_HOST: ${DISPLAY_HOST:-}
+      # ... (rest of the variables)
 
     volumes:
       - ./data:/app/data

@@ -176,7 +176,7 @@ jwt_handler = JWTHandler()
 oidc_client = OIDCClient()
 
 
-async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> Dict[str, Any]:
+async def get_current_user(credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)) -> Dict[str, Any]:
     """
     Dépendance FastAPI pour récupérer l'utilisateur actuel depuis le token JWT.
 
@@ -215,7 +215,7 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     return payload
 
 
-async def get_current_user_optional(credentials: HTTPAuthorizationCredentials = Depends(security)) -> Optional[Dict[str, Any]]:
+async def get_current_user_optional(credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)) -> Optional[Dict[str, Any]]:
     """
     Dépendance FastAPI pour récupérer l'utilisateur actuel (optionnel).
     Ne lève pas d'exception si l'utilisateur n'est pas authentifié.

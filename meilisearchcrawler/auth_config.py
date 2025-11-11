@@ -31,7 +31,7 @@ class AuthConfig:
             return
 
         # Lire la liste des providers activés depuis la variable d'environnement
-        # Format: "authentik,simple" ou "google,github,simple"
+        # Format: "oidc,simple" ou "google,github,simple"
         enabled_str = os.getenv("AUTH_PROVIDERS", "").strip().lower()
 
         if enabled_str:
@@ -196,14 +196,20 @@ class AuthConfig:
         return os.getenv("DASHBOARD_PASSWORD", "")
 
     # --- Configuration Proxy ---
-    def get_proxy_config(self) -> Optional[Dict[str, str]]:
-        """Retourne la configuration pour l'authentification par proxy."""
+    def get_proxy_config(self) -> Optional[Dict[str, Any]]:
+        """
+        Retourne la configuration pour l'authentification par proxy (authcrunch).
+
+        authcrunch injecte automatiquement les headers avec "inject headers with claims":
+        - X-Token-User-Email
+        - X-Token-User-Name
+        - X-Token-Subject
+        - X-Token-User-Roles
+        """
         if not self.has_provider(AuthProvider.PROXY):
             return None
-        
+
         return {
-            "email_header": os.getenv("AUTH_PROXY_EMAIL_HEADER", "X-Token-User-Email"),
-            "name_header": os.getenv("AUTH_PROXY_NAME_HEADER", "X-Token-User-Name"),
             "logout_url": os.getenv("AUTH_PROXY_LOGOUT_URL", "/"),
         }
 
