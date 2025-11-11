@@ -68,8 +68,8 @@ def _create_session(user_info, auth_method, t, token=None):
         'persistent_session_id': session_id
     })
     if token: st.session_state.oauth_token = token
-    get_local_storage().setItem('auth_session_id', session_id)
-    get_local_storage().setItem('auth_token', token) # Store JWT in local storage
+    get_local_storage().setItem('auth_session_id', session_id, key='set_session_id')
+    get_local_storage().setItem('auth_token', token, key='set_auth_token')
     st.rerun()
 
 
@@ -124,7 +124,7 @@ def check_authentication():
                     jwt_token = token_data.get("access_token")
 
                     # Stocker le JWT dans localStorage
-                    get_local_storage().setItem('auth_token', jwt_token)
+                    get_local_storage().setItem('auth_token', jwt_token, key='store_proxy_token')
 
                     # Créer la session
                     user_info = {
@@ -189,8 +189,8 @@ def check_authentication():
             return user_info
         else:
             auth_logger.warning("Invalid or expired JWT found in localStorage. Clearing.")
-            get_local_storage().deleteItem('auth_token')
-            get_local_storage().deleteItem('auth_session_id') # Also clear session ID if token is bad
+            get_local_storage().deleteItem('auth_token', key='clear_invalid_token')
+            get_local_storage().deleteItem('auth_session_id', key='clear_invalid_session')
 
     # 4. Check for existing persistent session ID in localStorage (fallback/legacy)
     session_id = get_local_storage().getItem('auth_session_id')
@@ -208,7 +208,7 @@ def check_authentication():
             return st.session_state.user_info
         else:
             auth_logger.warning(f"Persistent session expired for session_id: {session_id}. Clearing.")
-            get_local_storage().deleteItem('auth_session_id')
+            get_local_storage().deleteItem('auth_session_id', key='clear_expired_session')
 
     # 5. If authentication is disabled, allow anonymous access
     if not auth_config.is_enabled:
@@ -278,10 +278,11 @@ def logout():
     from meilisearchcrawler.session_manager import get_session_manager
     if 'persistent_session_id' in st.session_state:
         get_session_manager().delete_session(st.session_state['persistent_session_id'])
-    
-    get_local_storage().deleteItem('auth_session_id')
-    get_local_storage().deleteItem('auth_token') # Clear JWT from local storage
-    
+
+    # Ajouter des clés uniques pour éviter StreamlitDuplicateElementKey
+    get_local_storage().deleteItem('auth_session_id', key='delete_session_id')
+    get_local_storage().deleteItem('auth_token', key='delete_auth_token')
+
     # Nettoyer la session Streamlit
     for key in list(st.session_state.keys()):
         del st.session_state[key]
