@@ -103,3 +103,4 @@ docker-compose.synology*.yml
 /data/
 /.env.docker
 /.claude/settings.local.json
+/.env.secrets
