@@ -86,19 +86,18 @@ Modifiez les domaines:
 
 ### Configurer les variables d'environnement de Caddy
 
-**IMPORTANT**: Caddy a besoin de `JWT_SECRET_KEY` pour vérifier les tokens authcrunch.
+**IMPORTANT**: Caddy authcrunch a besoin de `OIDC_CLIENT_SECRET` (configuré dans Pocket ID) pour signer/vérifier ses cookies.
 
 Dans votre docker-compose pour Caddy ou en variables d'environnement système:
 
 ```yaml
 environment:
-  - JWT_SECRET_KEY=<même valeur que dans .env>
   - OIDC_CLIENT_ID=<votre client ID>
-  - OIDC_CLIENT_SECRET=<votre client secret>
+  - OIDC_CLIENT_SECRET=<votre client secret de Pocket ID>
   - OIDC_ISSUER=https://pocket-id.gandulf78.synology.me
 ```
 
-**CRITICAL**: `JWT_SECRET_KEY` doit être **identique** dans Caddy et dans l'application !
+**Note**: `JWT_SECRET_KEY` est utilisé UNIQUEMENT par l'API KidSearch (dans `.env`), **PAS par Caddy**.
 
 ### Point clé du Caddyfile
 
@@ -108,7 +107,7 @@ Assurez-vous que votre policy d'autorisation contient:
 authorization policy admin_only {
     set auth url https://auth.gandulf78.synology.me
     allow roles authp/admin authp/user
-    crypto key verify {env.JWT_SECRET_KEY}
+    crypto key verify {env.OIDC_CLIENT_SECRET}
 
     # CLEF: Injecter les claims JWT dans les headers HTTP
     inject headers with claims
@@ -117,7 +116,7 @@ authorization policy admin_only {
 
 ### Vérification Caddy
 
-- [ ] `JWT_SECRET_KEY` est le même dans Caddy et .env
+- [ ] `OIDC_CLIENT_SECRET` est configuré (depuis Pocket ID)
 - [ ] Les domaines sont corrects
 - [ ] OIDC est configuré (client_id, client_secret, issuer)
 - [ ] La directive `inject headers with claims` est présente
@@ -251,8 +250,9 @@ grep "JWT token issued" data/logs/auth.log
 
 ### Checklist sécurité
 
-- [ ] `JWT_SECRET_KEY` est un secret fort (64+ caractères hex)
-- [ ] Le secret n'est PAS committé dans Git
+- [ ] `JWT_SECRET_KEY` est un secret fort (64+ caractères hex) - pour l'API KidSearch
+- [ ] `OIDC_CLIENT_SECRET` est configuré (depuis Pocket ID) - pour Caddy authcrunch
+- [ ] Les secrets ne sont PAS committés dans Git
 - [ ] `.env` et `.env.secrets` sont dans `.gitignore`
 - [ ] HTTPS est activé (Caddy le fait automatiquement)
 - [ ] `ALLOWED_EMAILS` est configuré pour restreindre l'accès
@@ -283,21 +283,31 @@ grep "JWT token issued" data/logs/auth.log
 grep "X-Token-User-Email" data/logs/auth.log
 ```
 
-### Problème: JWT invalide
+### Problème: JWT invalide (API KidSearch)
 
-**Cause**: `JWT_SECRET_KEY` ne correspond pas ou JWT expiré
+**Cause**: `JWT_SECRET_KEY` incorrect ou JWT expiré
 
 **Solution**:
-1. Vérifiez que `JWT_SECRET_KEY` est identique dans Caddy ET dans `.env`
+1. Vérifiez que `JWT_SECRET_KEY` est correctement configuré dans `.env`
 2. Vérifiez l'expiration du JWT (défaut: 24h)
 3. Effacez localStorage et reconnectez-vous
 
 ```bash
 # Vérifier le secret dans l'application
 docker-compose exec kidsearch-all env | grep JWT_SECRET_KEY
+```
 
+### Problème: Cookies authcrunch non acceptés
+
+**Cause**: `OIDC_CLIENT_SECRET` incorrect dans Caddy
+
+**Solution**:
+1. Vérifiez que `OIDC_CLIENT_SECRET` dans Caddy correspond à celui de Pocket ID
+2. Redémarrez Caddy après modification
+
+```bash
 # Vérifier le secret dans Caddy
-docker-compose exec caddy env | grep JWT_SECRET_KEY
+docker-compose exec caddy env | grep OIDC_CLIENT_SECRET
 ```
 
 ### Problème: 403 Forbidden
@@ -344,16 +354,16 @@ Le module `meilisearchcrawler/session_manager.py` doit exister. S'il est manquan
 
 Avant de déployer en production:
 
-- [ ] Le secret JWT est généré et configuré
+- [ ] `JWT_SECRET_KEY` est généré et configuré (dans `.env` de l'application)
+- [ ] `OIDC_CLIENT_SECRET` est configuré (dans Caddy, depuis Pocket ID)
 - [ ] Les variables d'environnement sont complètes
 - [ ] Caddy est configuré avec `inject headers with claims`
-- [ ] `JWT_SECRET_KEY` est identique dans Caddy et l'application
 - [ ] L'image Docker est buildée
 - [ ] Le flux d'authentification fonctionne en test
 - [ ] Les logs sont propres (pas d'erreurs)
 - [ ] HTTPS est activé
 - [ ] La whitelist des emails est configurée
-- [ ] Le secret n'est PAS dans Git
+- [ ] Les secrets ne sont PAS dans Git
 
 ---
 

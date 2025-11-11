@@ -92,11 +92,13 @@ ALLOWED_EMAILS=laurent@example.com,user@example.com
 ### 3. Variables d'environnement Caddy
 
 ```bash
-export JWT_SECRET_KEY=<même valeur que dans .env>
+# Pour authcrunch (signe les cookies de session)
 export OIDC_CLIENT_ID=your_client_id
 export OIDC_CLIENT_SECRET=your_client_secret
 export OIDC_ISSUER=https://pocket-id.gandulf78.synology.me
 ```
+
+**Note importante**: `JWT_SECRET_KEY` est utilisé UNIQUEMENT par l'API KidSearch, **PAS par Caddy**. authcrunch utilise `OIDC_CLIENT_SECRET` pour signer ses propres cookies.
 
 ## Flux d'authentification
 
@@ -153,8 +155,19 @@ ALLOWED_PROXY_IPS = ["172.18.0.0/16"]  # Réseau Docker
 
 ### Secrets
 
-- `JWT_SECRET_KEY` : Secret pour signer les JWT de l'API (généré avec `secrets.token_hex(32)`)
-- Pas de `AUTH_PROXY_SHARED_SECRET` nécessaire (géré par authcrunch)
+**Deux secrets indépendants:**
+
+1. **`OIDC_CLIENT_SECRET`** (pour Caddy authcrunch)
+   - Configuré dans Pocket ID lors de la création du client OIDC
+   - Utilisé par authcrunch pour signer/vérifier ses cookies de session
+   - Partagé entre Pocket ID et Caddy
+
+2. **`JWT_SECRET_KEY`** (pour l'API KidSearch)
+   - Généré avec `python -c "import secrets; print(secrets.token_hex(32))"`
+   - Utilisé par l'API pour signer/vérifier ses propres JWT
+   - UNIQUEMENT dans l'application KidSearch (pas dans Caddy)
+
+**Important**: Ces deux secrets sont complètement indépendants. authcrunch ne connaît pas `JWT_SECRET_KEY` et l'API ne connaît pas le détail des cookies authcrunch.
 
 ## Dépannage
 
@@ -162,9 +175,9 @@ ALLOWED_PROXY_IPS = ["172.18.0.0/16"]  # Réseau Docker
 
 Vérifiez que `inject headers with claims` est bien dans la policy d'autorisation.
 
-### JWT invalide
+### JWT invalide (dans l'API)
 
-Vérifiez que `JWT_SECRET_KEY` est identique partout.
+Vérifiez que `JWT_SECRET_KEY` est correctement configuré dans `.env` de l'application KidSearch.
 
 ### Logs
 
@@ -178,6 +191,7 @@ tail -f data/logs/auth.log
 
 ## Ressources
 
+- [🔑 Les deux secrets expliqués](./SECRETS_EXPLAINED.md) - Clarification des rôles de `OIDC_CLIENT_SECRET` vs `JWT_SECRET_KEY`
 - [AuthCrunch - HTTP Headers](https://docs.authcrunch.com/docs/authorize/headers)
 - [AuthCrunch - Token Verification](https://docs.authcrunch.com/docs/authorize/token-verification)
 - [AuthCrunch - Identity](https://docs.authcrunch.com/docs/authorize/identity)

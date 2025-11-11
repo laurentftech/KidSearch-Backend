@@ -21,7 +21,7 @@
         # Configuration du portail d'authentification
         authentication portal myportal {
             crypto default token lifetime 3600
-            crypto key sign-verify {env.JWT_SECRET_KEY}
+            crypto key sign-verify {env.OIDC_CLIENT_SECRET}
             enable identity provider generic
             cookie domain gandulf78.synology.me
             ui {
@@ -39,7 +39,7 @@
         authorization policy admin_only {
             set auth url https://auth.gandulf78.synology.me
             allow roles authp/admin authp/user
-            crypto key verify {env.JWT_SECRET_KEY}
+            crypto key verify {env.OIDC_CLIENT_SECRET}
 
             # SOLUTION OFFICIELLE: Injecter les claims JWT dans les headers HTTP
             inject headers with claims
