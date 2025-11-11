@@ -187,72 +187,94 @@ This type is optimized for sites running on MediaWiki software (like Wikipedia, 
 
 ## 5. Dashboard Authentication
 
-### 🧩 KidSearch Authentication
+The dashboard supports multiple authentication methods, which can be combined.
 
-KidSearch natively supports any **OpenID Connect (OIDC)** compatible identity provider, such as:
+### 🛡️ Proxy Authentication (Recommended for Production)
 
-- 🔐 **Pocket ID** (recommended for self-hosted usage)
-- 🛡️ **Authentik** (for multi-user environments)
-- 🔵 **Google OAuth** (sign in with Google accounts)
-- ⚫ **GitHub OAuth** (sign in with GitHub accounts)
-- 🔑 **Simple Password** (basic authentication)
+This is the most secure and flexible method. It delegates authentication to a reverse proxy (like Caddy, Traefik, or Nginx) that injects user information into HTTP headers. This avoids double login prompts.
 
-### OIDC Configuration (Recommended)
+**Configuration (`.env`):**
+```bash
+# Enable proxy authentication
+AUTH_PROXY_ENABLED=true
 
-For any standard OIDC provider (Pocket ID, Authentik, Keycloak, etc.), simply provide the following variables in your `.env`:
+# Header containing the user's email (e.g., X-Forwarded-User, X-Token-User-Email)
+AUTH_PROXY_EMAIL_HEADER=X-Token-User-Email
 
+# Header containing the user's display name (e.g., X-Forwarded-User-Name, X-Token-User-Name)
+AUTH_PROXY_NAME_HEADER=X-Token-User-Name
+
+# URL to redirect to on logout (e.g., the proxy's logout endpoint)
+AUTH_PROXY_LOGOUT_URL=/
+```
+
+**Example with Caddy & AuthCrunch:**
+Here is a Caddyfile snippet showing how to configure AuthCrunch to secure the dashboard:
+```caddy
+# === KIDSEARCH DASHBOARD ===
+http://kidsearch-admin.example.com {
+    authorize with your_auth_policy
+    reverse_proxy kidsearch-dashboard:8501 {
+        # Inject user info into headers
+        header_up X-Token-User-Email {http.auth.user.claims.email}
+        header_up X-Token-User-Name {http.auth.user.claims.name}
+    }
+}
+```
+
+### 🧩 OIDC, Google, GitHub & Simple Password
+
+KidSearch also natively supports:
+- Any **OpenID Connect (OIDC)** provider (Pocket ID, Authentik, Keycloak)
+- **Google OAuth**
+- **GitHub OAuth**
+- **Simple Password**
+
+You can enable one or more of these methods. If multiple are enabled, users will see a selection screen.
+
+#### OIDC Configuration (Recommended for Self-Hosted)
+
+For any standard OIDC provider, simply provide the following in your `.env`:
 ```bash
 OIDC_ISSUER=https://auth.example.com
 OIDC_CLIENT_ID=your_client_id
 OIDC_CLIENT_SECRET=your_client_secret
 OIDC_REDIRECT_URI=http://localhost:8501/
 ```
+Endpoints are automatically discovered.
 
-OIDC endpoints (authorization, token, userinfo) are automatically discovered via `/.well-known/openid-configuration`.
+#### Google & GitHub OAuth
 
-### Setting up OAuth Authentication
-
-To enable OAuth authentication, configure the following in your `.env` file:
-
-**For Google OAuth:**
+Configure the following in your `.env` file:
 ```bash
+# For Google
 GOOGLE_OAUTH_CLIENT_ID=your_client_id.apps.googleusercontent.com
 GOOGLE_OAUTH_CLIENT_SECRET=your_client_secret
 GOOGLE_OAUTH_REDIRECT_URI=http://localhost:8501/
-ALLOWED_EMAILS=user1@gmail.com,user2@example.com
-```
 
-Get credentials from: https://console.cloud.google.com/apis/credentials
-
-**For GitHub OAuth:**
-```bash
+# For GitHub
 GITHUB_OAUTH_CLIENT_ID=your_github_client_id
 GITHUB_OAUTH_CLIENT_SECRET=your_github_client_secret
 GITHUB_OAUTH_REDIRECT_URI=http://localhost:8501/
-ALLOWED_EMAILS=user1@example.com,user2@company.com
 ```
-
-Get credentials from: https://github.com/settings/developers
 
 ### Email Whitelist
 
-The `ALLOWED_EMAILS` variable restricts access to specific email addresses:
-- If empty: all authenticated users can access (not recommended for production)
-- If set: only listed emails can access the dashboard
+The `ALLOWED_EMAILS` variable restricts access for OAuth and Proxy methods:
+- If empty: all authenticated users can access.
+- If set: only listed emails can access the dashboard.
+```bash
+ALLOWED_EMAILS=user1@gmail.com,user2@example.com
+```
 
 ### Diagnosing Authentication Issues
 
-If you're having trouble with OAuth login, use the diagnostic tools:
+If you're having trouble with login, use the diagnostic tools:
 
 **1. Check your configuration:**
 ```bash
 python3 check_auth_config.py
 ```
-
-This will show:
-- Which authentication providers are configured
-- Whether your credentials are set
-- If an email is allowed to access
 
 **2. Test a specific email:**
 ```bash
@@ -261,18 +283,9 @@ python3 check_auth_config.py user@example.com
 
 **3. Monitor authentication logs:**
 ```bash
-./watch_auth_logs.sh
-```
-
-Or view the logs directly:
-```bash
 tail -f data/logs/auth.log
 ```
-
-The logs will show:
-- ✅ Successful logins with email addresses
-- ❌ Failed logins with detailed reasons (email not authorized, email missing, etc.)
-- 🔍 Full OAuth response details (in DEBUG mode)
+The logs will show ✅ successful logins and ❌ failed logins with detailed reasons.
 
 ## 6. Running Tests
 

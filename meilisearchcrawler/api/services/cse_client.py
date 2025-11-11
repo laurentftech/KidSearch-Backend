@@ -55,6 +55,7 @@ class CSEClient:
 
         # Initialize cache database
         self._init_cache_db()
+        self._session: aiohttp.ClientSession | None = None
 
     def _init_cache_db(self):
         """Initialize SQLite cache database."""
@@ -94,6 +95,15 @@ class CSEClient:
         conn.close()
 
         logger.info(f"CSE cache database initialized: {self.cache_db_path}")
+
+    async def _get_session(self) -> aiohttp.ClientSession:
+        if self._session is None or self._session.closed:
+            self._session = aiohttp.ClientSession(
+                connector=aiohttp.TCPConnector(limit=20),
+                raise_for_status=False,
+                timeout=aiohttp.ClientTimeout(total=10)
+            )
+        return self._session
 
     async def search(
         self, query: str, lang: str = "fr", num_results: int = 10
@@ -171,10 +181,10 @@ class CSEClient:
             "Accept-Encoding": "gzip, deflate",
         }
 
-        async with aiohttp.ClientSession() as session:
-            async with session.get(self.base_url, params=params, headers=headers) as response:
-                response.raise_for_status()
-                data = await response.json()
+        session = await self._get_session()
+        async with session.get(self.base_url, params=params, headers=headers) as response:
+            response.raise_for_status()
+            data = await response.json()
 
         # Parse results
         results = []

@@ -40,6 +40,8 @@ class WikiClient:
         self.site_name = site_name
         self.user_agent = USER_AGENT
         self.ssl_context = ssl.create_default_context(cafile=certifi.where())
+        self._session: aiohttp.ClientSession | None = None
+        self._curl_session: CurlAsyncSession | None = None
 
         # Auto-detect language from API URL if not provided
         if lang is None:
@@ -57,48 +59,68 @@ class WikiClient:
         else:
             self.lang = lang
 
+    async def _get_session(self) -> aiohttp.ClientSession:
+        if self._session is None or self._session.closed:
+            self._session = aiohttp.ClientSession(
+                connector=aiohttp.TCPConnector(limit=20),
+                raise_for_status=False,
+                timeout=aiohttp.ClientTimeout(total=10)
+            )
+        return self._session
+
     def _use_cloudflare_bypass(self) -> bool:
         """Determines if cloudscraper should be used to bypass Cloudflare."""
         return CLOUDSCRAPER_AVAILABLE and 'vikidia' in self.site_name.lower()
 
     async def _fetch_with_curl_cffi(self, params: dict) -> dict:
-        """Makes a request using curl_cffi to bypass Cloudflare."""
-        async with CurlAsyncSession() as session:
-            try:
-                # Build Accept-Language based on wiki language
-                accept_lang_map = {
-                    'fr': 'fr-FR,fr;q=0.9,en;q=0.8',
-                    'en': 'en-US,en;q=0.9',
-                    'es': 'es-ES,es;q=0.9,en;q=0.8',
-                    'de': 'de-DE,de;q=0.9,en;q=0.8'
-                }
-                accept_language = accept_lang_map.get(self.lang, 'en-US,en;q=0.9')
+        """Makes a request using curl_cffi to bypass Cloudflare efficiently."""
+        if not CURL_CFFI_AVAILABLE:
+            return {}
 
-                headers = {
-                    'Accept': 'application/json, text/javascript, */*; q=0.01',
-                    'Accept-Language': accept_language,
-                    'Accept-Encoding': 'gzip, deflate, br',
-                    'Referer': self.site_url,
-                    'DNT': '1',
-                    'Sec-Fetch-Dest': 'empty',
-                    'Sec-Fetch-Mode': 'cors',
-                    'Sec-Fetch-Site': 'same-origin'
+        # Crée la session une seule fois
+        if self._curl_session is None:
+            self._curl_session = CurlAsyncSession(
+                headers={
+                    "User-Agent": self.user_agent,
+                    "Accept": "application/json, text/javascript, */*; q=0.01",
+                    "Accept-Encoding": "gzip, deflate, br",
+                    "Connection": "keep-alive"
                 }
-                response = await session.get(
-                    self.api_url,
-                    params=params,
-                    headers=headers,
-                    impersonate="chrome120",
-                    timeout=10
-                )
-                response.raise_for_status()
-                return response.json()
-            except Exception as e:
-                logger.error(f"HTTP error while searching wiki with curl_cffi: {e}")
-                return {}
+            )
+
+        try:
+            accept_lang_map = {
+                'fr': 'fr-FR,fr;q=0.9,en;q=0.8',
+                'en': 'en-US,en;q=0.9',
+                'es': 'es-ES,es;q=0.9,en;q=0.8',
+                'de': 'de-DE,de;q=0.9,en;q=0.8'
+            }
+            accept_language = accept_lang_map.get(self.lang, 'en-US,en;q=0.9')
+
+            headers = {
+                'Accept-Language': accept_language,
+                'Referer': self.site_url,
+                'DNT': '1',
+            }
+
+            resp = await self._curl_session.get(
+                self.api_url,
+                params=params,
+                headers=headers,
+                impersonate="chrome120",
+                timeout=10
+            )
+            resp.raise_for_status()
+            return resp.json()
+
+        except Exception as e:
+            logger.warning(f"curl_cffi request failed for {self.site_name}: {e}")
+            return {}
 
     async def _fetch_with_aiohttp(self, params: dict) -> dict:
-        """Makes a request using aiohttp with a proper User-Agent."""
+        """Makes a request using a persistent aiohttp session with a proper User-Agent."""
+        session = await self._get_session()
+
         # Build Accept-Language header based on wiki language
         accept_lang_map = {
             'fr': 'fr-FR,fr;q=0.9,en;q=0.8',
@@ -109,7 +131,7 @@ class WikiClient:
         accept_language = accept_lang_map.get(self.lang, 'en-US,en;q=0.9')
 
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'User-Agent': self.user_agent,
             'Accept': 'application/json, text/javascript, */*; q=0.01',
             'Accept-Language': accept_language,
             'Accept-Encoding': 'gzip, deflate, br',
@@ -117,14 +139,15 @@ class WikiClient:
             'DNT': '1',
             'Connection': 'keep-alive'
         }
-        async with aiohttp.ClientSession(headers=headers, connector=aiohttp.TCPConnector(ssl=self.ssl_context)) as session:
-            try:
-                async with session.get(self.api_url, params=params, timeout=aiohttp.ClientTimeout(total=15)) as response:
-                    response.raise_for_status()
-                    return await response.json()
-            except Exception as e:
-                logger.error(f"HTTP error while searching wiki with aiohttp: {e}")
-                return {}
+
+        try:
+            async with session.get(self.api_url, params=params, headers=headers) as response:
+                response.raise_for_status()
+                return await response.json()
+        except Exception as e:
+            logger.error(f"HTTP error while searching wiki with aiohttp: {e}")
+            return {}
+
 
     async def _fetch_with_cloudscraper(self, params: dict) -> dict:
         """Makes a request using cloudscraper to bypass Cloudflare challenges."""
@@ -226,3 +249,10 @@ class WikiClient:
             )
 
         return results
+
+    async def close(self):
+        if self._session and not self._session.closed:
+            await self._session.close()
+        if self._curl_session:
+            await self._curl_session.close()
+        logger.info(f"Closed WikiClient session for {self.site_name}")

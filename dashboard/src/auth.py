@@ -298,6 +298,66 @@ def _sso_auth(provider: str, t):
     return False
 
 
+def _proxy_auth(t):
+    """
+    Authentification via un reverse proxy qui injecte les headers utilisateur.
+    """
+    from streamlit.web.server.server import Server
+    
+    auth_config = get_auth_config()
+    proxy_config = auth_config.get_proxy_config()
+    
+    if not proxy_config:
+        return False
+
+    try:
+        # Accès non-documenté aux headers de la requête
+        session_info = Server.get_current()._get_session_info(st.session_state._main_dg.id)
+        headers = session_info.ws.request.headers
+    except Exception as e:
+        auth_logger.error(f"Impossible de récupérer les headers: {e}")
+        return False
+
+    email_header = proxy_config['email_header']
+    name_header = proxy_config['name_header']
+
+    user_email = headers.get(email_header)
+    user_name = headers.get(name_header, user_email) # Fallback sur l'email si le nom n'est pas fourni
+
+    if user_email:
+        auth_logger.info(f"Proxy auth attempt - email: {user_email} from header '{email_header}'")
+
+        if not auth_config.is_email_allowed(user_email):
+            auth_logger.warning(f"Proxy auth DENIED - email: {user_email} - not in ALLOWED_EMAILS")
+            st.error(f"🚫 {t('access_denied')}")
+            st.warning(f"{t('email_not_authorized')}: {user_email}")
+            st.info(t('contact_admin'))
+            st.stop()
+        
+        auth_logger.info(f"Proxy auth SUCCESS - email: {user_email}")
+
+        user_info = {"name": user_name, "email": user_email}
+        
+        session_manager = get_session_manager()
+        session_id = session_manager.create_session(
+            email=user_email,
+            user_info=user_info,
+            auth_method=AuthProvider.PROXY.value
+        )
+
+        st.session_state.authenticated = True
+        st.session_state.auth_method = AuthProvider.PROXY.value
+        st.session_state.user_info = user_info
+        st.session_state.persistent_session_id = session_id
+
+        local_storage = get_local_storage()
+        local_storage.setItem('auth_session_id', session_id)
+        
+        return True
+    
+    return False
+
+
 def check_authentication():
     """
     Vérifie si l'utilisateur est authentifié.
@@ -319,8 +379,6 @@ def check_authentication():
     local_storage = get_local_storage()
 
     # Récupérer le session_id depuis localStorage
-    # localStorage est synchrone et toujours disponible immédiatement
-    # Pas besoin de cache - localStorage survit aux rafraîchissements de page (F5)
     session_id = local_storage.getItem('auth_session_id')
     auth_logger.debug(f"localStorage session_id récupéré: {session_id}")
 
@@ -329,7 +387,6 @@ def check_authentication():
         session_data = session_manager.get_session(session_id)
 
         if session_data:
-            # Restaurer l'authentification depuis la session persistante
             auth_logger.info(f"Session restaurée depuis cookie - email: {session_data.get('email', 'N/A')}")
             st.session_state.authenticated = True
             st.session_state.auth_method = session_data['auth_method']
@@ -338,7 +395,6 @@ def check_authentication():
             st.session_state.persistent_session_id = session_id
             return session_data['user_info']
         else:
-            # Session expirée, supprimer de localStorage
             auth_logger.warning(f"Session expirée pour session_id: {session_id}")
             local_storage.deleteItem('auth_session_id')
 
@@ -356,8 +412,15 @@ def check_authentication():
         st.session_state.user_info = {"name": "Anonymous", "email": ""}
         return st.session_state.user_info
 
+    # --- NOUVEAU: Vérifier l'authentification par proxy en premier ---
+    if auth_config.has_provider(AuthProvider.PROXY):
+        if _proxy_auth(t):
+            # Si l'authentification par proxy réussit, on rafraîchit la page pour nettoyer l'URL
+            st.rerun()
+            return st.session_state.user_info
+
     # Déterminer les méthodes d'authentification disponibles
-    providers = auth_config.providers
+    providers = [p for p in auth_config.providers if p != AuthProvider.PROXY]
 
     # Si aucune méthode configurée, afficher une erreur
     if not providers or AuthProvider.NONE in providers:
@@ -448,6 +511,8 @@ def check_authentication():
 
 def logout():
     """Déconnecte l'utilisateur."""
+    auth_config = get_auth_config()
+    
     # Supprimer de localStorage
     local_storage = get_local_storage()
     local_storage.deleteItem('auth_session_id')
@@ -468,7 +533,14 @@ def logout():
     for key in keys_to_clean:
         del st.session_state[key]
 
-    st.rerun()
+    # Redirection après déconnexion
+    if auth_config.has_provider(AuthProvider.PROXY):
+        proxy_config = auth_config.get_proxy_config()
+        logout_url = proxy_config.get("logout_url", "/")
+        st.markdown(f'<meta http-equiv="refresh" content="0; url={logout_url}">', unsafe_allow_html=True)
+        st.stop()
+    else:
+        st.rerun()
 
 
 def get_user_info():
@@ -505,6 +577,8 @@ def show_user_widget(t):
                 st.caption("⚫ " + t('connected_via_github'))
             elif auth_method == "password":
                 st.caption("🔑 " + t('connected_via_password'))
+            elif auth_method == "proxy":
+                st.caption("🛡️ " + t('connected_via_proxy'))
 
             if st.button(t('logout_button'), key="logout_btn", width='stretch'):
                 logout()

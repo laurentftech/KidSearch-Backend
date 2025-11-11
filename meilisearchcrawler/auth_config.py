@@ -14,6 +14,7 @@ class AuthProvider(Enum):
     GOOGLE = "google"
     GITHUB = "github"
     SIMPLE = "simple"
+    PROXY = "proxy"  # Authentification déléguée à un reverse proxy
     NONE = "none"  # Pas d'authentification
 
 
@@ -51,6 +52,10 @@ class AuthConfig:
         """Détecte automatiquement les providers configurés."""
         providers = []
 
+        # Proxy (si activé)
+        if self._is_proxy_configured():
+            providers.append(AuthProvider.PROXY)
+            
         # OIDC générique (priorité la plus haute)
         if self._is_oidc_configured():
             providers.append(AuthProvider.OIDC)
@@ -72,6 +77,10 @@ class AuthConfig:
             providers.append(AuthProvider.NONE)
 
         return providers
+
+    def _is_proxy_configured(self) -> bool:
+        """Vérifie si l'authentification par proxy est activée."""
+        return os.getenv("AUTH_PROXY_ENABLED", "false").lower() == "true"
 
     def _is_oidc_configured(self) -> bool:
         """Vérifie si OIDC générique est configuré."""
@@ -185,6 +194,18 @@ class AuthConfig:
         if not self.has_provider(AuthProvider.SIMPLE):
             return None
         return os.getenv("DASHBOARD_PASSWORD", "")
+
+    # --- Configuration Proxy ---
+    def get_proxy_config(self) -> Optional[Dict[str, str]]:
+        """Retourne la configuration pour l'authentification par proxy."""
+        if not self.has_provider(AuthProvider.PROXY):
+            return None
+        
+        return {
+            "email_header": os.getenv("AUTH_PROXY_EMAIL_HEADER", "X-Token-User-Email"),
+            "name_header": os.getenv("AUTH_PROXY_NAME_HEADER", "X-Token-User-Name"),
+            "logout_url": os.getenv("AUTH_PROXY_LOGOUT_URL", "/"),
+        }
 
     # --- Email Whitelist ---
 

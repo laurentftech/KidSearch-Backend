@@ -184,94 +184,107 @@ Ce type est optimisé pour les sites utilisant le logiciel MediaWiki (comme Wiki
 - L'URL `crawl` doit être l'URL de base du wiki (ex: `https://fr.vikidia.org`).
 - `depth` et `selector` ne sont pas utilisés pour ce type.
 
-## 5. Authentification du Dashboard
+## 5. Authentification du Tableau de Bord
 
-### 🧩 Authentification KidSearch
+Le tableau de bord prend en charge plusieurs méthodes d'authentification, qui peuvent être combinées.
 
-KidSearch supporte nativement tout fournisseur d'identité compatible **OpenID Connect (OIDC)**, tel que :
+### 🛡️ Authentification par Proxy (Recommandé pour la Production)
 
-- 🔐 **Pocket ID** (recommandé pour usage self-hosted)
-- 🛡️ **Authentik** (pour environnements multi-utilisateurs)
-- 🔵 **Google OAuth** (connexion avec comptes Google)
-- ⚫ **GitHub OAuth** (connexion avec comptes GitHub)
-- 🔑 **Mot de passe simple** (authentification basique)
+C'est la méthode la plus sécurisée et flexible. Elle délègue l'authentification à un reverse proxy (comme Caddy, Traefik ou Nginx) qui injecte les informations de l'utilisateur dans les en-têtes HTTP. Cela évite les doubles invites de connexion.
 
-### Configuration OIDC (Recommandé)
+**Configuration (`.env`):**
+```bash
+# Activer l'authentification par proxy
+AUTH_PROXY_ENABLED=true
 
-Pour tout fournisseur OIDC standard (Pocket ID, Authentik, Keycloak, etc.), fournissez simplement les variables suivantes dans votre `.env` :
+# En-tête contenant l'email de l'utilisateur (ex: X-Forwarded-User, X-Token-User-Email)
+AUTH_PROXY_EMAIL_HEADER=X-Token-User-Email
 
+# En-tête contenant le nom d'affichage de l'utilisateur (ex: X-Forwarded-User-Name, X-Token-User-Name)
+AUTH_PROXY_NAME_HEADER=X-Token-User-Name
+
+# URL de redirection lors de la déconnexion (ex: le point de terminaison de déconnexion du proxy)
+AUTH_PROXY_LOGOUT_URL=/
+```
+
+**Exemple avec Caddy & AuthCrunch:**
+Voici un extrait de Caddyfile montrant comment configurer AuthCrunch pour sécuriser le tableau de bord :
+```caddy
+# === TABLEAU DE BORD KIDSEARCH ===
+http://kidsearch-admin.example.com {
+    authorize with your_auth_policy
+    reverse_proxy kidsearch-dashboard:8501 {
+        # Injecter les informations utilisateur dans les en-têtes
+        header_up X-Token-User-Email {http.auth.user.claims.email}
+        header_up X-Token-User-Name {http.auth.user.claims.name}
+    }
+}
+```
+
+### 🧩 OIDC, Google, GitHub & Mot de Passe Simple
+
+KidSearch prend également en charge nativement :
+- Tout fournisseur **OpenID Connect (OIDC)** (Pocket ID, Authentik, Keycloak)
+- **Google OAuth**
+- **GitHub OAuth**
+- **Mot de passe simple**
+
+Vous pouvez activer une ou plusieurs de ces méthodes. Si plusieurs sont activées, les utilisateurs verront un écran de sélection.
+
+#### Configuration OIDC (Recommandé pour l'auto-hébergement)
+
+Pour tout fournisseur OIDC standard, fournissez simplement ce qui suit dans votre `.env` :
 ```bash
 OIDC_ISSUER=https://auth.example.com
 OIDC_CLIENT_ID=votre_client_id
 OIDC_CLIENT_SECRET=votre_client_secret
 OIDC_REDIRECT_URI=http://localhost:8501/
 ```
+Les points de terminaison sont découverts automatiquement.
 
-Les endpoints OIDC (authorization, token, userinfo) sont découverts automatiquement via `/.well-known/openid-configuration`.
+#### Google & GitHub OAuth
 
-### Configuration de l'authentification OAuth
-
-Pour activer l'authentification OAuth, configurez les variables suivantes dans votre fichier `.env` :
-
-**Pour Google OAuth :**
+Configurez ce qui suit dans votre fichier `.env` :
 ```bash
+# Pour Google
 GOOGLE_OAUTH_CLIENT_ID=votre_client_id.apps.googleusercontent.com
 GOOGLE_OAUTH_CLIENT_SECRET=votre_client_secret
 GOOGLE_OAUTH_REDIRECT_URI=http://localhost:8501/
-ALLOWED_EMAILS=utilisateur1@gmail.com,utilisateur2@exemple.com
-```
 
-Obtenez les credentials sur : https://console.cloud.google.com/apis/credentials
-
-**Pour GitHub OAuth :**
-```bash
+# Pour GitHub
 GITHUB_OAUTH_CLIENT_ID=votre_github_client_id
 GITHUB_OAUTH_CLIENT_SECRET=votre_github_client_secret
 GITHUB_OAUTH_REDIRECT_URI=http://localhost:8501/
-ALLOWED_EMAILS=utilisateur1@exemple.com,utilisateur2@societe.com
 ```
 
-Obtenez les credentials sur : https://github.com/settings/developers
+### Liste d'Emails Autorisés
 
-### Liste d'emails autorisés
+La variable `ALLOWED_EMAILS` restreint l'accès pour les méthodes OAuth et Proxy :
+- Si vide : tous les utilisateurs authentifiés peuvent accéder.
+- Si définie : seuls les emails listés peuvent accéder au tableau de bord.
+```bash
+ALLOWED_EMAILS=utilisateur1@gmail.com,utilisateur2@exemple.com
+```
 
-La variable `ALLOWED_EMAILS` restreint l'accès à des adresses email spécifiques :
-- Si vide : tous les utilisateurs authentifiés peuvent accéder (non recommandé en production)
-- Si configurée : seuls les emails listés peuvent accéder au dashboard
+### Diagnostic des Problèmes d'Authentification
 
-### Diagnostic des problèmes d'authentification
+Si vous rencontrez des difficultés avec la connexion, utilisez les outils de diagnostic :
 
-Si vous rencontrez des difficultés avec la connexion OAuth, utilisez les outils de diagnostic :
-
-**1. Vérifier votre configuration :**
+**1. Vérifiez votre configuration :**
 ```bash
 python3 check_auth_config.py
 ```
 
-Cela affichera :
-- Quels providers d'authentification sont configurés
-- Si vos credentials sont définis
-- Si un email est autorisé à accéder
-
-**2. Tester un email spécifique :**
+**2. Testez un email spécifique :**
 ```bash
 python3 check_auth_config.py utilisateur@exemple.com
 ```
 
-**3. Surveiller les logs d'authentification :**
-```bash
-./watch_auth_logs.sh
-```
-
-Ou consulter les logs directement :
+**3. Surveillez les logs d'authentification :**
 ```bash
 tail -f data/logs/auth.log
 ```
-
-Les logs afficheront :
-- ✅ Connexions réussies avec les adresses email
-- ❌ Connexions échouées avec raisons détaillées (email non autorisé, email manquant, etc.)
-- 🔍 Détails complets de la réponse OAuth (en mode DEBUG)
+Les logs afficheront les connexions réussies ✅ et échouées ❌ avec des raisons détaillées.
 
 ## 6. Lancer les Tests
 

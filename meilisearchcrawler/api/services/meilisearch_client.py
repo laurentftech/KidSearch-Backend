@@ -9,6 +9,7 @@ import os
 import sys
 from pathlib import Path
 from typing import List, Optional
+import asyncio
 
 from meilisearch_python_sdk import AsyncClient
 from meilisearch_python_sdk.errors import MeilisearchApiError, MeilisearchCommunicationError, MeilisearchError
@@ -119,7 +120,8 @@ class MeilisearchClient:
 
                 if not self.is_rest_embedder:
                     try:
-                        query_embeddings = self.embedding_provider.encode([query])
+                        # run sync encoder in thread pool to avoid blocking event loop
+                        query_embeddings = await asyncio.to_thread(self.embedding_provider.encode, [query])
                         if query_embeddings and query_embeddings[0]:
                             search_params["vector"] = query_embeddings[0]
                             logger.debug(f"Added vector for query: '{query}'")
@@ -189,3 +191,12 @@ class MeilisearchClient:
         except Exception as e:
             logger.error(f"Failed to get index stats: {e}")
             return {}
+
+    async def close(self):
+        """Close Meilisearch async client and free resources."""
+        try:
+            if self.client is not None:
+                await self.client._httpx_client.aclose()
+                logger.info("Closed Meilisearch AsyncClient session")
+        except Exception as e:
+            logger.warning(f"Error while closing Meilisearch client: {e}")

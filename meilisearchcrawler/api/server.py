@@ -28,6 +28,7 @@ from .services.stats_db import StatsDatabase
 from .services.crawler_status import get_crawl_status
 from ..embeddings import create_embedding_provider
 from .state import AppState
+import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -153,6 +154,28 @@ async def lifespan(app: FastAPI):
     logger.info("KidSearch API backend started successfully")
     yield
     logger.info("Shutting down KidSearch API backend...")
+    # --- Clean shutdown of HTTP clients ---
+    try:
+        tasks = []
+        # Meilisearch client
+        if hasattr(app.state, "meilisearch_client") and hasattr(app.state.meilisearch_client, "close"):
+            tasks.append(app.state.meilisearch_client.close())
+
+        # Google CSE client
+        if hasattr(app.state, "cse_client") and app.state.cse_client and hasattr(app.state.cse_client, "close"):
+            tasks.append(app.state.cse_client.close())
+
+        # Wiki clients (list)
+        if hasattr(app.state, "wiki_clients"):
+            for wiki_client in app.state.wiki_clients:
+                if hasattr(wiki_client, "close"):
+                    tasks.append(wiki_client.close())
+
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+            logger.info("✓ All HTTP clients closed successfully.")
+    except Exception as e:
+        logger.warning(f"✗ Error during client shutdown: {e}", exc_info=True)
 
 def create_app() -> FastAPI:
     app = FastAPI(
