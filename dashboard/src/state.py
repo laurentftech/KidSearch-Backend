@@ -28,11 +28,16 @@ def start_crawler(site=None, force=False, workers=None, embed=False, persistent_
     try:
         python_executable = sys.executable
         cmd = [python_executable, CRAWLER_SCRIPT]
-        if site: cmd.extend(["--site", site])
-        if force: cmd.append("--force")
-        if workers: cmd.extend(["--workers", str(workers)])
-        if embed: cmd.append("--embeddings") # Ajout du flag pour les embeddings
-        if persistent_cache: cmd.append("--persistent-cache") # Cache permanent
+        if site:
+            cmd.extend(["--site", site])
+        if force:
+            cmd.append("--force")
+        if workers:
+            cmd.extend(["--workers", str(workers)])
+        if embed:
+            cmd.append("--embeddings") # Ajout du flag pour les embeddings
+        if persistent_cache:
+            cmd.append("--persistent-cache") # Cache permanent
 
         process = subprocess.Popen(cmd)
         with open(PID_FILE, "w") as f:
