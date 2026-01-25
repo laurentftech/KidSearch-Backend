@@ -14,9 +14,8 @@ from dashboard.src.auth import check_authentication, show_user_widget
 from dashboard.src.config import INDEX_NAME
 from dashboard.src.i18n import get_translator
 from dashboard.src.state import is_crawler_running, start_crawler
-from dashboard.src.typesense_client import check_collection_exists
+from dashboard.src.typesense_client import check_collection_exists, get_typesense_client
 from dashboard.src.utils import (
-    get_typesense_client,
     load_crawl_history,
     load_status,
     save_crawl_history,

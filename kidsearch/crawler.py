@@ -326,8 +326,8 @@ cache_db = CacheDB()
 logger.info("✅ Cache SQLite initialisé")
 
 
-async def update_meilisearch_settings(index, with_embeddings=False):
-    logger.info("⚙️ Mise à jour des paramètres MeiliSearch...")
+async def update_typesense_settings(index, with_embeddings=False):
+    logger.info("⚙️ Mise à jour des paramètres Typesense...")
     settings = {
         'searchable_attributes': ['title', 'excerpt', 'content', 'site', 'images.alt'],
         'displayed_attributes': [
@@ -743,6 +743,9 @@ async def index_documents_batch(index, documents: List[Dict], stats):
                     doc["embedding_provider"] = provider_name
                     doc["embedding_model"] = model_name
                     doc["embedding_dimensions"] = len(embedding)
+                    doc["has_embedding"] = True
+                else:
+                    doc["has_embedding"] = False
 
         if tei_monitor:
             tei_monitor.log_stats()
@@ -1342,7 +1345,7 @@ async def crawl_mediawiki_async(context: CrawlContext, index):
     from kidsearch.mediawiki_crawler import MediaWikiCrawler
     crawler = MediaWikiCrawler(context)
     use_embeddings = embedding_provider and embedding_provider.get_embedding_dim() > 0
-    await crawler.crawl_and_index_progressive(meilisearch_index=index, use_embeddings=use_embeddings,
+    await crawler.crawl_and_index_progressive(typesense_index=index, use_embeddings=use_embeddings,
                                               indexing_batch_size=config.INDEXING_BATCH_SIZE)
 
 

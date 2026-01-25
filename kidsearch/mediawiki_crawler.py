@@ -1,4 +1,4 @@
-# meilisearchcrawler/mediawiki_crawler.py
+# kidsearch/mediawiki_crawler.py
 # Extension pour crawler Vikidia/Wikipedia via leur API avec indexation progressive
 
 import asyncio
@@ -382,7 +382,7 @@ class MediaWikiCrawler:
             await asyncio.sleep(5)
 
 
-    async def index_batch_with_embeddings(self, documents: List[Dict], meilisearch_index,
+    async def index_batch_with_embeddings(self, documents: List[Dict], typesense_index,
                                           use_embeddings: bool, embedding_batch_size: int):
         """Indexe un batch de documents avec embeddings si activé"""
         if not documents:
@@ -433,16 +433,19 @@ class MediaWikiCrawler:
                         doc["embedding_provider"] = provider_name
                         doc["embedding_model"] = embedding_model
                         doc["embedding_dimensions"] = len(embedding)
+                        doc["has_embedding"] = True
+                    else:
+                        doc["has_embedding"] = False
 
         # Indexation dans Typesense
         try:
-            await meilisearch_index.index_documents(documents)
+            await typesense_index.index_documents(documents)
             logger.debug(f"   ✓ {len(documents)} documents indexés")
         except Exception as e:
             logger.error(f"❌ Erreur indexation: {e}")
             await self.context.stats.increment('errors', len(documents))
 
-    async def crawl_and_index_progressive(self, meilisearch_index, use_embeddings: bool,
+    async def crawl_and_index_progressive(self, typesense_index, use_embeddings: bool,
                                           indexing_batch_size: int, global_status):
         """
         Méthode principale de crawl via l'API MediaWiki avec indexation progressive
@@ -550,7 +553,7 @@ class MediaWikiCrawler:
                         if len(documents_buffer) >= indexing_batch_size:
                             await self.index_batch_with_embeddings(
                                 documents_buffer,
-                                meilisearch_index,
+                                typesense_index,
                                 use_embeddings,
                                 config.GEMINI_EMBEDDING_BATCH_SIZE
                             )
@@ -568,7 +571,7 @@ class MediaWikiCrawler:
             logger.info(f"📦 Indexation des {len(documents_buffer)} documents restants...")
             await self.index_batch_with_embeddings(
                 documents_buffer,
-                meilisearch_index,
+                typesense_index,
                 use_embeddings,
                 config.GEMINI_EMBEDDING_BATCH_SIZE
             )

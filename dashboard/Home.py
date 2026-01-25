@@ -72,7 +72,6 @@ st.markdown("""
 #  SIDEBAR
 # =======================
 with st.sidebar:
-    st.image("https://typesense.org/images/logo.svg", width=150)
     st.title(t('dashboard_title'))
 
     # Sélecteur de langue avec drapeaux

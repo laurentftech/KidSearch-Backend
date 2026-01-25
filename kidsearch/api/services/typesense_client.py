@@ -98,6 +98,7 @@ class TypesenseClient:
                     {'name': 'embedding_provider', 'type': 'string', 'optional': True},
                     {'name': 'embedding_model', 'type': 'string', 'optional': True},
                     {'name': 'embedding_dimensions', 'type': 'int32', 'optional': True},
+                    {'name': 'has_embedding', 'type': 'bool', 'optional': True, 'facet': True},
                 ])
 
         # Create collection

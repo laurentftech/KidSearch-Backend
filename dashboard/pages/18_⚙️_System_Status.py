@@ -131,6 +131,7 @@ if client:
                                     {'name': 'indexed_at', 'type': 'string'},
                                     {'name': 'last_crawled_at', 'type': 'string'},
                                     {'name': 'content_hash', 'type': 'string'},
+                                    {'name': 'has_embedding', 'type': 'bool', 'optional': True},
                                 ]
                             }
 
@@ -191,6 +192,7 @@ if client:
                             {'name': 'indexed_at', 'type': 'string'},
                             {'name': 'last_crawled_at', 'type': 'string'},
                             {'name': 'content_hash', 'type': 'string'},
+                            {'name': 'has_embedding', 'type': 'bool', 'optional': True},
                         ]
                     }
 

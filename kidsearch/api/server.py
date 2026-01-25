@@ -138,7 +138,7 @@ async def lifespan(app: FastAPI):
         logger.info("✓ Stats database initialized")
         # --- Custom Prometheus Metrics ---
         Gauge("avg_search_time_ms", "Average search time in ms").set_function(lambda: app.state.stats_db.get_avg_search_time())
-        Gauge("avg_typesense_time_ms", "Average Typesense query time in ms").set_function(lambda: app.state.stats_db.get_avg_meilisearch_time())
+        Gauge("avg_typesense_time_ms", "Average Typesense query time in ms").set_function(lambda: app.state.stats_db.get_avg_typesense_time())
         Gauge("avg_cse_time_ms", "Average Google CSE query time in ms").set_function(lambda: app.state.stats_db.get_avg_cse_time())
         Gauge("avg_wiki_time_ms", "Average MediaWiki query time in ms").set_function(lambda: app.state.stats_db.get_avg_wiki_time())
         Gauge("avg_reranking_time_ms", "Average reranking time in ms").set_function(lambda: app.state.stats_db.get_avg_reranking_time())

@@ -1,4 +1,4 @@
-# meilisearchcrawler/migrate_cache_to_db.py
+# kidsearch/migrate_cache_to_db.py
 import json
 import os
 import sqlite3

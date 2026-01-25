@@ -5,7 +5,6 @@ from typesense.exceptions import TypesenseClientError
 from urllib.parse import urlparse
 from .config import TYPESENSE_URL, TYPESENSE_API_KEY
 
-@st.cache_resource
 def get_typesense_client():
     """Establishes and caches a connection to the Typesense client."""
     if not TYPESENSE_URL or not TYPESENSE_API_KEY:
@@ -69,6 +68,26 @@ def get_collection_stats(client, collection_name):
     except Exception as e:
         st.error(f"Error getting collection stats: {e}")
         return None
+
+
+def count_documents(client, collection_name, filter_by=""):
+    """Count documents in a collection, optionally with a filter."""
+    try:
+        search_params = {
+            "q": "*",
+            "query_by": "title",  # A mandatory field, adjust if needed
+            "per_page": 0,
+            "filter_by": filter_by
+        }
+        result = client.collections[collection_name].documents.search(search_params)
+        return result.get('found', 0)
+    except TypesenseClientError as e:
+        # Handle cases where the collection or field might not exist yet
+        st.warning(f"Could not count documents: {e}")
+        return 0
+    except Exception as e:
+        st.error(f"An unexpected error occurred while counting documents: {e}")
+        return 0
 
 
 def get_collection(client, collection_name):

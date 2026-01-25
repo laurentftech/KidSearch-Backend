@@ -1,4 +1,4 @@
-# meilisearchcrawler/cache_db.py
+# kidsearch/cache_db.py
 import json
 import sqlite3
 from datetime import datetime

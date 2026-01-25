@@ -112,7 +112,10 @@ async def search(
             for hit in hits_list:
                 raw_score = hit.get('text_match_info', {}).get('score', 0)
                 if isinstance(raw_score, str):
-                    raw_score = float(raw_score)
+                    try:
+                        raw_score = float(raw_score)
+                    except ValueError:
+                        raw_score = 0.0
                 raw_scores.append(raw_score)
 
             # Normalize scores to 0-1 range using min-max normalization

@@ -292,7 +292,7 @@ class StatsDatabase:
             conn.close()
             return avg or 0.0
         except Exception as e:
-            logger.error(f"Failed to get avg meilisearch time: {e}")
+            logger.error(f"Failed to get avg typesense time: {e}")
             return 0.0
 
     def get_avg_cse_time(self) -> float:
