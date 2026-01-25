@@ -1,0 +1,69 @@
+# Git
+.git
+.gitignore
+.gitattributes
+.github
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info
+dist
+build
+.venv
+venv
+env
+ENV
+
+# Testing
+.pytest_cache
+.coverage
+coverage.xml
+htmlcov
+.tox
+.mypy_cache
+.ruff_cache
+tests
+
+# IDEs
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data and logs
+data/*
+!data/.gitkeep
+typesense_data/*
+models_cache/*
+*.log
+*.db
+*.db-journal
+
+# Docker
+docker-compose.override.yml
+.dockerignore
+Dockerfile
+
+# Documentation
+README.md
+README-fr.md
+docs/*
+*.md
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Misc
+.coverage
+*.orig
