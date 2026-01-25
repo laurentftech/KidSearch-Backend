@@ -1,10 +1,8 @@
 import streamlit as st
-import os
 import yaml
 import re
 import json
 from .config import SITES_CONFIG_FILE, LOG_FILE, STATUS_FILE, HISTORY_FILE
-from .typesense_client import get_typesense_client
 
 @st.cache_data(ttl=30)  # Cache for 30 seconds
 def load_sites_config():

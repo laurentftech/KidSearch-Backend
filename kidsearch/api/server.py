@@ -3,32 +3,30 @@ FastAPI server for KidSearch backend.
 Provides unified search API combining Meilisearch and Google CSE with reranking.
 """
 
+import asyncio
 import logging
 import os
 from contextlib import asynccontextmanager
-from typing import Dict, Optional
 from pathlib import Path
-from dotenv import load_dotenv
 
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from typesense.exceptions import TypesenseClientError
 from fastapi.responses import JSONResponse
-from prometheus_fastapi_instrumentator import Instrumentator
 from prometheus_client import Gauge
+from prometheus_fastapi_instrumentator import Instrumentator
 
-from .routes import health, search, metrics, auth
-from .services.typesense_client import TypesenseClient
+from .routes import auth, health, metrics, search
+from .services.crawler_status import get_crawl_status
 from .services.cse_client import CSEClient
-from .services.wiki_client import WikiClient
-from .services.safety import SafetyFilter
 from .services.merger import SearchMerger
 from .services.reranker import HuggingFaceAPIReranker
+from .services.safety import SafetyFilter
 from .services.stats_db import StatsDatabase
-from .services.crawler_status import get_crawl_status
-from ..embeddings import create_embedding_provider
+from .services.typesense_client import TypesenseClient
+from .services.wiki_client import WikiClient
 from .state import AppState
-import asyncio
+from ..embeddings import create_embedding_provider
 
 logger = logging.getLogger(__name__)
 

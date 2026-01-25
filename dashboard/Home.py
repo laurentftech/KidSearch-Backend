@@ -1,14 +1,23 @@
-import streamlit as st
 import os
-from dotenv import load_dotenv
 import sys
 from pathlib import Path
+
+import streamlit as st
+from dotenv import load_dotenv
 
 # This is a hack to make sure the app is launched from the root of the project
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 # Charger les variables d'environnement pour que Streamlit les voie
 load_dotenv()
+
+# Local imports after sys.path manipulation
+from dashboard.src.auth import check_authentication, show_user_widget  # noqa: E402
+from dashboard.src.i18n import get_translator  # noqa: E402
+from dashboard.src.state import is_crawler_running  # noqa: E402
+from dashboard.src.typesense_client import get_collection_stats, get_typesense_client  # noqa: E402
+from dashboard.src.utils import load_cache_stats  # noqa: E402
+from kidsearch.config import INDEX_NAME  # noqa: E402
 
 # =======================
 #  Configuration & Page
@@ -33,24 +42,15 @@ if 'lang' not in st.session_state:
     st.session_state.lang = "fr"  # Langue par défaut
 
 # Créer la fonction de traduction
-from dashboard.src.i18n import get_translator
 t = get_translator(st.session_state.lang)
 
 # =======================
 #  Vérification de l'accès
 # =======================
-from dashboard.src.auth import check_authentication, show_user_widget
 token_info = check_authentication()
 
 # Afficher le widget utilisateur avec bouton de déconnexion
 show_user_widget(t)
-
-
-# Import services after auth check
-from dashboard.src.state import is_crawler_running
-from dashboard.src.utils import load_cache_stats
-from dashboard.src.typesense_client import get_typesense_client, get_collection_stats
-from kidsearch.config import INDEX_NAME
 
 
 # =======================

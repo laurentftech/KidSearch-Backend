@@ -4,24 +4,25 @@ Search endpoints.
 
 import asyncio
 import logging
-import time
 import os
-from typing import Optional, List, Tuple
-import numpy as np
+import time
+from typing import List, Tuple
 
-from fastapi import APIRouter, Query, HTTPException, status, Request
+import numpy as np
+from fastapi import APIRouter, HTTPException, Query, Request, status
 from fastapi.responses import JSONResponse
 from typesense.exceptions import TypesenseClientError
 
 from ..models import (
-    SearchResponse,
-    SearchStats,
+    APIStats,
     FeedbackRequest,
     FeedbackResponse,
-    APIStats,
     Language,
-    SearchResult
+    SearchResponse,
+    SearchResult,
+    SearchStats,
 )
+from ..services.wiki_client import WikiClient
 from ..state import AppState
 
 logger = logging.getLogger(__name__)
@@ -101,8 +102,7 @@ async def search(
             )
 
             # Transform Typesense results to SearchResult format
-            from ..models import SearchSource, ImageResult
-            import math
+            from ..models import ImageResult, SearchSource
 
             # First pass: collect all hits and scores
             hits_list = results_dict.get('hits', [])
@@ -173,7 +173,7 @@ async def search(
         s = time.time()
 
         # Search all wikis in parallel
-        async def search_single_wiki(client: 'WikiClient') -> List[SearchResult]:
+        async def search_single_wiki(client: WikiClient) -> List[SearchResult]:
             try:
                 return await client.search(query=q, lang=lang.value, limit=5)
             except Exception as e:

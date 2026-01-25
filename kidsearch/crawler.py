@@ -29,8 +29,6 @@ import heapq
 import psutil
 
 # Search Engine Client
-import typesense
-from typesense.exceptions import TypesenseClientError
 
 from kidsearch.cache_db import CacheDB
 from kidsearch.embeddings import create_embedding_provider, EmbeddingProvider, \
@@ -143,7 +141,7 @@ class ResourceMonitor:
         try:
             process = psutil.Process()
             return process.memory_info().rss / 1024 / 1024  # MB
-        except:
+        except Exception:
             return 0
 
     @staticmethod
@@ -152,7 +150,7 @@ class ResourceMonitor:
         try:
             mem = psutil.virtual_memory()
             return mem.percent > 80
-        except:
+        except Exception:
             return False
 
     @staticmethod
@@ -163,7 +161,7 @@ class ResourceMonitor:
             mem = psutil.virtual_memory()
             logger.debug(
                 f"💻 CPU: {cpu_percent}% | RAM: {mem.percent}% ({mem.used / 1024 / 1024 / 1024:.1f}GB/{mem.total / 1024 / 1024 / 1024:.1f}GB)")
-        except:
+        except Exception:
             pass
 
 
@@ -265,7 +263,7 @@ class TEIMetricsMonitor:
             return
 
         m = self.last_metrics
-        logger.info(f"📊 TEI Stats:")
+        logger.info("📊 TEI Stats:")
         logger.info(f"   Queue: {m.get('queue_size', 0)} requêtes")
         logger.info(f"   Total: {m.get('total_requests', 0)} requêtes")
         logger.info(f"   Succès: {m.get('successful_requests', 0)}")
@@ -357,9 +355,10 @@ async def update_meilisearch_settings(index, with_embeddings=False):
         }
 
     try:
-        settings_model = MeilisearchSettings.model_validate(settings)
-        task: TaskInfo = await index.update_settings(settings_model)
-        logger.info(f"   ✓ Paramètres mis à jour (task uid: {task.task_uid})")
+        # Note: MeilisearchSettings and TaskInfo are no longer available
+        # This code may need to be updated for Typesense
+        await index.update_settings(settings)
+        logger.info("   ✓ Paramètres mis à jour")
     except Exception as e:
         logger.error(f"❌ Échec mise à jour paramètres: {e}")
 
@@ -1086,7 +1085,7 @@ async def crawl_site_html_async(context: CrawlContext, index):
     logger.info(
         f"   Paramètres: max={max_pages}, depth={context.max_depth}, delay={context.rate_limiter.delay:.2f}s, workers={config.CONCURRENT_REQUESTS}")
     logger.info(f"   📦 Indexation progressive par lots de {config.INDEXING_BATCH_SIZE}")
-    logger.info(f"   🎯 Stratégie: Exploration en profondeur (DFS) avec priorité maximale")
+    logger.info("   🎯 Stratégie: Exploration en profondeur (DFS) avec priorité maximale")
     crawl_start_time = time.time()
     logger.info(f"   ⏱️  Timeout maximum: {config.MAX_CRAWL_DURATION}s ({config.MAX_CRAWL_DURATION / 60:.1f} min)")
     logger.info(f"   🧠 Limite file d'attente: {config.MAX_QUEUE_SIZE} URLs")
@@ -1374,7 +1373,7 @@ def show_cache_stats():
     logger.info(f"{'=' * 60}")
     logger.info(f"📄 Total d'URLs en cache: {stats['total_urls']}")
     if stats.get('sites'):
-        logger.info(f"\n🌐 Répartition par site:")
+        logger.info("\n🌐 Répartition par site:")
         for site, count in sorted(stats['sites'].items(), key=lambda x: x[1], reverse=True):
             logger.info(f"   • {site}: {count} pages")
     if stats.get('oldest_crawl') and stats.get('newest_crawl'):
@@ -1509,7 +1508,7 @@ async def main_async():
             if args.workers > config.MAX_WORKERS:
                 logger.warning(
                     f"⚠️  Nombre de workers limité de {args.workers} à {config.MAX_WORKERS} (MAX_WORKERS)")
-                logger.warning(f"    Pour augmenter cette limite, définissez MAX_WORKERS dans .env")
+                logger.warning("    Pour augmenter cette limite, définissez MAX_WORKERS dans .env")
                 config.CONCURRENT_REQUESTS = config.MAX_WORKERS
             else:
                 config.CONCURRENT_REQUESTS = args.workers
@@ -1530,7 +1529,7 @@ async def main_async():
         global_status = GlobalCrawlStatus(total_sites=len(sites_to_crawl))
         global_status.start()
         logger.info(f"\n{'=' * 60}")
-        logger.info(f"🚀 KidSearch Crawler - Optimisé DS220+")
+        logger.info("🚀 KidSearch Crawler - Optimisé DS220+")
         logger.info(f"{'=' * 60}")
 
         # Log ressources système
@@ -1544,20 +1543,20 @@ async def main_async():
             logger.info(f"📦 Batch size indexation: {config.INDEXING_BATCH_SIZE}")
             logger.info(f"📦 Batch size embeddings: {config.HUGGINGFACE_EMBEDDING_BATCH_SIZE}")
             logger.info(f"⏱️  Délai entre batchs: {config.EMBEDDING_BATCH_DELAY}s")
-        except:
+        except Exception:
             pass
 
         logger.info(f"📋 {len(sites_to_crawl)} site(s) à crawler")
         logger.info(f"🔄 Mode: {'FORCE RECRAWL' if args.force else 'INCREMENTAL'}")
         if args.persistent_cache:
-            logger.info(f"💾 Cache: PERSISTANT (jamais d'expiration)")
+            logger.info("💾 Cache: PERSISTANT (jamais d'expiration)")
         else:
             logger.info(f"💾 Cache: {config.CACHE_DAYS} jours d'expiration")
-        logger.info(f"🎯 Stratégie: Exploration en profondeur (DFS)")
+        logger.info("🎯 Stratégie: Exploration en profondeur (DFS)")
         logger.info(f"⚡ Workers: {config.CONCURRENT_REQUESTS} requêtes parallèles")
         logger.info(f"📦 Indexation: par lots de {config.INDEXING_BATCH_SIZE} documents")
         if embedding_provider and embedding_provider.get_embedding_dim() > 0:
-            logger.info(f"✨ Embeddings: Activés")
+            logger.info("✨ Embeddings: Activés")
             logger.info(
                 f"   Provider: {embedding_provider.get_provider_name()} ({embedding_provider.get_embedding_dim()}D)")
             logger.info(f"   Model: {embedding_provider.get_model_name()}")
@@ -1601,7 +1600,7 @@ async def main_async():
                 total_duration = time.time() - (global_status.start_time or time.time())
                 global_status.stop()
                 logger.info(f"\n{'=' * 60}")
-                logger.info(f"🎉 Crawl terminé !")
+                logger.info("🎉 Crawl terminé !")
                 logger.info(f"{'=' * 60}")
                 logger.info(f"⏱️  Durée totale: {total_duration / 60:.2f} minutes")
                 logger.info(f"{'=' * 60}\n")

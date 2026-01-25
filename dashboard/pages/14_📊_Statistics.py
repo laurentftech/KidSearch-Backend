@@ -1,28 +1,28 @@
-import streamlit as st
-import sys
-from pathlib import Path
-import pandas as pd
-from datetime import datetime
-import time
 import os
 import sys
+import time
+from datetime import datetime
+from pathlib import Path
+
+import pandas as pd
+import streamlit as st
 
 # Ajouter le répertoire racine au path pour l'import de CacheDB
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if BASE_DIR not in sys.path:
     sys.path.append(BASE_DIR)
 
-from dashboard.src.i18n import get_translator
-from dashboard.src.state import is_crawler_running
-from kidsearch.cache_db import CacheDB
-
 # This is a hack to make sure the app is launched from the root of the project
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+
+from dashboard.src.auth import check_authentication, show_user_widget  # noqa: E402
+from dashboard.src.i18n import get_translator  # noqa: E402
+from dashboard.src.state import is_crawler_running  # noqa: E402
+from kidsearch.cache_db import CacheDB  # noqa: E402
 
 # =======================
 #  Vérification de l'accès
 # =======================
-from dashboard.src.auth import check_authentication, show_user_widget
 check_authentication()
 
 # Initialiser le traducteur

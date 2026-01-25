@@ -4,7 +4,7 @@ Combines and deduplicates results from Typesense and Google CSE.
 """
 
 import logging
-from typing import List, Set, Tuple
+from typing import List, Set
 from urllib.parse import urlparse
 
 from ..models import SearchResult, SearchSource

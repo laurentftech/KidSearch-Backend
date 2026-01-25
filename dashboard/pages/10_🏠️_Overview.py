@@ -1,24 +1,30 @@
-import streamlit as st
 import sys
+import time
 from pathlib import Path
+
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-import time
-from typesense.exceptions import TypesenseClientError
-
-from dashboard.src.utils import load_status, load_crawl_history, save_crawl_history, get_typesense_client
-from dashboard.src.state import start_crawler, is_crawler_running
-from dashboard.src.i18n import get_translator
-from dashboard.src.config import INDEX_NAME
+import streamlit as st
 
 # This is a hack to make sure the app is launched from the root of the project
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
+from dashboard.src.auth import check_authentication, show_user_widget
+from dashboard.src.config import INDEX_NAME
+from dashboard.src.i18n import get_translator
+from dashboard.src.state import is_crawler_running, start_crawler
+from dashboard.src.typesense_client import check_collection_exists
+from dashboard.src.utils import (
+    get_typesense_client,
+    load_crawl_history,
+    load_status,
+    save_crawl_history,
+)
+
 # =======================
 #  Vérification de l'accès
 # =======================
-from dashboard.src.auth import check_authentication, show_user_widget
 check_authentication()
 
 # Initialiser le traducteur
@@ -33,8 +39,6 @@ st.title(t("overview.title"))
 st.markdown(t("overview.subtitle"))
 
 # --- Typesense Collection Check ---
-from dashboard.src.typesense_client import check_collection_exists
-
 client = get_typesense_client()
 if client:
     if not check_collection_exists(client, INDEX_NAME):

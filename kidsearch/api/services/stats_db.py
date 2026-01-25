@@ -5,10 +5,9 @@ Tracks search queries, performance metrics, and user feedback.
 
 import logging
 import sqlite3
-import json
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 

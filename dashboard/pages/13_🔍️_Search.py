@@ -1,23 +1,23 @@
-import streamlit as st
 import sys
-from pathlib import Path
 from datetime import datetime
-from langdetect import detect, LangDetectException
+from pathlib import Path
+
+import streamlit as st
+from langdetect import LangDetectException, detect
+from typesense.exceptions import TypesenseClientError
 
 # This is a hack to make sure the app is launched from the root of the project
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
+from dashboard.src.auth import check_authentication, show_user_widget
+from dashboard.src.config import INDEX_NAME
+from dashboard.src.i18n import get_translator
+from dashboard.src.typesense_client import check_collection_exists, get_collection_stats, get_typesense_client
+
 # =======================
 #  Vérification de l'accès
 # =======================
-from dashboard.src.auth import check_authentication, show_user_widget
 check_authentication()
-
-# Corrected imports for the new SDK and proper pathing
-from dashboard.src.typesense_client import get_typesense_client
-from typesense.exceptions import TypesenseClientError
-from dashboard.src.config import INDEX_NAME
-from dashboard.src.i18n import get_translator
 
 # Initialize translator
 if 'lang' not in st.session_state:
@@ -37,8 +37,6 @@ st.markdown(t("search.subtitle"))
 
 # --- Initialization ---
 typesense_client = get_typesense_client()
-
-from dashboard.src.typesense_client import check_collection_exists, get_collection_stats
 
 if not typesense_client:
     st.error(t("search.error_typesense_connection"))

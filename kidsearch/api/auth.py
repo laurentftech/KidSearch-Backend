@@ -3,7 +3,6 @@ Module d'authentification pour l'API FastAPI.
 Supporte OpenID Connect (OIDC) et génération de JWT.
 """
 
-import os
 import logging
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
@@ -12,7 +11,7 @@ import httpx
 from fastapi import HTTPException, status, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
-from kidsearch.auth_config import get_auth_config, AuthProvider
+from kidsearch.auth_config import get_auth_config
 
 logger = logging.getLogger(__name__)
 

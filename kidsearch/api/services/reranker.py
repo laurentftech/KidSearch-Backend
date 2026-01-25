@@ -1,7 +1,7 @@
-import time
 import logging
-import os
+import time
 from typing import List, Optional
+
 import numpy as np
 
 from ..models import SearchResult

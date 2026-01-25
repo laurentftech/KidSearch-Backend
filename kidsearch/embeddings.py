@@ -1,10 +1,10 @@
-from abc import ABC, abstractmethod
-from typing import List, Optional
 import logging
 import os
+from abc import ABC, abstractmethod
+from typing import List, Optional
+
 import requests
 from cachetools import LRUCache
-import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -93,11 +93,6 @@ class HuggingFaceInferenceAPIEmbeddingProvider(EmbeddingProvider):
         self.batch_size = int(os.getenv("EMBEDDING_BATCH_SIZE", "6"))
         self.timeout = int(os.getenv("EMBEDDING_TIMEOUT", "30"))
         self._embedding_cache = LRUCache(maxsize=int(os.getenv("EMBEDDING_CACHE_SIZE", "2048")))
-
-        try:
-            import requests
-        except ImportError:
-            raise ImportError("'requests' package is required. Install with: pip install requests")
 
         logger.info(f"✓ HuggingFace Inference API provider initialized for model {model_name} on {api_url}")
         self._verify_api_connection()

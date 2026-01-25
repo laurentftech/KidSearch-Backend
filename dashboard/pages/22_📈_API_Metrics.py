@@ -9,7 +9,6 @@ import requests
 from prometheus_client.parser import text_string_to_metric_families
 import pandas as pd
 import plotly.graph_objects as go
-import plotly.express as px
 
 from dashboard.src.i18n import get_translator
 

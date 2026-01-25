@@ -1,9 +1,8 @@
 # meilisearchcrawler/cache_db.py
-import sqlite3
 import json
+import sqlite3
 from datetime import datetime
-from typing import Optional, Dict, List
-import hashlib
+from typing import Dict, List, Optional
 
 
 class CacheDB:

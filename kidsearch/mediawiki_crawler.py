@@ -1,17 +1,17 @@
 # meilisearchcrawler/mediawiki_crawler.py
 # Extension pour crawler Vikidia/Wikipedia via leur API avec indexation progressive
 
-import aiohttp
 import asyncio
-from typing import Dict, List, Optional
-from urllib.parse import urljoin, urlencode
-import logging
-from datetime import datetime
-import time
-import ssl
-from google import genai
 import hashlib
+import logging
 import os
+import ssl
+import time
+from datetime import datetime
+from typing import Dict, List, Optional
+
+import aiohttp
+import certifi
 
 # Import curl_cffi pour contourner Cloudflare
 try:
@@ -21,9 +21,8 @@ except ImportError:
     CURL_CFFI_AVAILABLE = False
 
 # Imports pour la migration vers SQLite
-import certifi, aiohttp
-from kidsearch.crawler import should_skip_page, update_cache, config
-from kidsearch.embeddings import create_embedding_provider, EmbeddingProvider
+from kidsearch.crawler import config, should_skip_page, update_cache
+from kidsearch.embeddings import create_embedding_provider
 
 logger = logging.getLogger(__name__)
 
@@ -88,7 +87,7 @@ class MediaWikiCrawler:
 
         use_cf_bypass = self._use_cloudflare_bypass()
         if use_cf_bypass:
-            logger.info(f"   🔐 Protection Cloudflare détectée - utilisation de curl_cffi")
+            logger.info("   🔐 Protection Cloudflare détectée - utilisation de curl_cffi")
 
         all_page_ids = []
         continue_token = None
@@ -251,7 +250,6 @@ class MediaWikiCrawler:
         ]
 
         title_lower = title.lower()
-        content_preview = content[:500].lower() if content else ''
 
         for keyword in unsafe_keywords:
             if keyword in title_lower:
@@ -577,9 +575,9 @@ class MediaWikiCrawler:
             await self.context.stats.increment('pages_indexed', len(documents_buffer))
             documents_buffer.clear()
 
-        logger.info(f"✅ Crawl MediaWiki terminé")
+        logger.info("✅ Crawl MediaWiki terminé")
         if use_embeddings and self.embedding_dim > 0:
-            logger.info(f"   🤖 Documents avec embeddings générés")
+            logger.info("   🤖 Documents avec embeddings générés")
 
     async def crawl(self) -> List[Dict]:
         """

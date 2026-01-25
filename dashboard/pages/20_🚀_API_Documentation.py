@@ -114,8 +114,8 @@ else:
 col1, col2 = st.columns(2)
 
 with col1:
-    st.markdown(f"**📖 Documentation Swagger UI:**")
-    st.markdown(f"Permet d'explorer et de tester les endpoints de manière interactive.")
+    st.markdown("**📖 Documentation Swagger UI:**")
+    st.markdown("Permet d'explorer et de tester les endpoints de manière interactive.")
     if API_ENABLED:
         st.link_button("Accéder à Swagger UI", f"{API_BASE_URL}/docs")
     else:
@@ -123,7 +123,7 @@ with col1:
 
 
 with col2:
-    st.markdown(f"**📘 Documentation ReDoc:**")
+    st.markdown("**📘 Documentation ReDoc:**")
     st.markdown("Offre une vue plus claire et lisible de la spécification OpenAPI.")
     if API_ENABLED:
         st.link_button("Accéder à ReDoc", f"{API_BASE_URL}/redoc")

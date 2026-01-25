@@ -1,24 +1,29 @@
-import streamlit as st
-import sys
-from pathlib import Path
-import time
+import os
 import subprocess
 import sys
-import os
-from typesense.exceptions import TypesenseClientError
+import time
+from pathlib import Path
 
-from dashboard.src.state import start_crawler, stop_crawler, clear_cache, is_crawler_running
-from dashboard.src.utils import load_sites_config, load_cache_stats, parse_logs_for_errors, get_typesense_client
-from dashboard.src.config import CRAWLER_SCRIPT, INDEX_NAME
-from dashboard.src.i18n import get_translator
+import streamlit as st
 
 # This is a hack to make sure the app is launched from the root of the project
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
+from dashboard.src.auth import check_authentication, show_user_widget
+from dashboard.src.config import CRAWLER_SCRIPT, INDEX_NAME
+from dashboard.src.i18n import get_translator
+from dashboard.src.state import clear_cache, is_crawler_running, start_crawler, stop_crawler
+from dashboard.src.typesense_client import check_collection_exists
+from dashboard.src.utils import (
+    get_typesense_client,
+    load_cache_stats,
+    load_sites_config,
+    parse_logs_for_errors,
+)
+
 # =======================
 #  Vérification de l'accès
 # =======================
-from dashboard.src.auth import check_authentication, show_user_widget
 check_authentication()
 
 # Initialiser le traducteur
@@ -32,8 +37,6 @@ show_user_widget(t)
 st.header(t("controls.title"))
 
 # --- Typesense Collection Check ---
-from dashboard.src.typesense_client import check_collection_exists
-
 client = get_typesense_client()
 index_exists = False
 if client:

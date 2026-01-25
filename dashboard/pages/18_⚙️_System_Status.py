@@ -163,13 +163,12 @@ if client:
                     if confirm_text and confirm_text != "RECREER":
                         st.caption("❌ Texte de confirmation incorrect")
 
-        except Exception as e:
+        except Exception:
             st.warning(f"⚠️ Collection '{INDEX_NAME}' does not exist")
             st.info("The collection will be created automatically when you start the crawler or API server.")
 
             if st.button("🔨 Create Collection Now"):
                 try:
-                    import typesense
 
                     # Get embedding settings
                     embedding_provider = os.getenv("EMBEDDING_PROVIDER", "none").lower()
@@ -261,6 +260,6 @@ try:
     else:
         st.warning(f"⚠️ API returned status code: {response.status_code}")
         st.caption(f"Tried to connect to: {health_url}")
-except Exception as e:
+except Exception:
     st.warning("⚠️ API server is not responding")
     st.caption(f"Tried to connect to: {health_url}")

@@ -2,11 +2,11 @@
 Pydantic models for API request/response schemas.
 """
 
-from typing import List, Optional, Dict, Any
+from typing import Any, Dict, List, Optional
 from datetime import datetime
 from enum import Enum
 
-from pydantic import BaseModel, Field, HttpUrl, validator
+from pydantic import BaseModel, Field, HttpUrl
 
 
 class SearchSource(str, Enum):

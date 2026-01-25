@@ -1,17 +1,17 @@
 """
 Typesense client with async support and embedding integration
 """
-import os
 import asyncio
-from typing import Optional, List, Dict, Any
+import os
+from typing import Any, Dict, List, Optional
+
 import typesense
 from typesense.exceptions import TypesenseClientError
+
 from kidsearch.embeddings import (
-    create_embedding_provider,
     EmbeddingProvider,
     NoEmbeddingProvider,
-    GeminiEmbeddingProvider,
-    HuggingFaceInferenceAPIEmbeddingProvider
+    create_embedding_provider,
 )
 
 

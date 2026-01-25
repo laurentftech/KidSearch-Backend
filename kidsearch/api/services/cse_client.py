@@ -3,20 +3,20 @@ Google Custom Search Engine (CSE) client with SQLite caching.
 Manages API calls, quota tracking, and result caching.
 """
 
-import logging
 import hashlib
 import json
-import time
-import sqlite3
+import logging
 import os
-from typing import List, Optional, Dict, Any
-from datetime import datetime, timedelta
+import sqlite3
+import time
+from datetime import datetime
 from pathlib import Path
+from typing import Dict, List, Optional
 
 import aiohttp
 from pydantic import ValidationError
 
-from ..models import SearchResult, SearchSource, ImageResult
+from ..models import ImageResult, SearchResult, SearchSource
 
 logger = logging.getLogger(__name__)
 

@@ -3,16 +3,16 @@ Routes d'authentification pour l'API FastAPI.
 Gère le login via OIDC et la génération de JWT.
 """
 
-import os
 import logging
-from datetime import timedelta
+import os
 from typing import Optional
 from urllib.parse import urlencode, urlparse
+
 from fastapi import APIRouter, HTTPException, Query, Request
-from fastapi.responses import RedirectResponse, JSONResponse, HTMLResponse
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 
-from kidsearch.auth_config import get_auth_config, AuthProvider
+from kidsearch.auth_config import AuthProvider, get_auth_config
 from ..auth import jwt_handler, oidc_client
 
 logger = logging.getLogger(__name__)
@@ -191,6 +191,3 @@ async def logout():
     Déconnexion (invalide le token côté client).
     """
     return {"message": "Logged out successfully. Please delete your access token."}
-
-
-import os
