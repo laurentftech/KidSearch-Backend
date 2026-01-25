@@ -55,11 +55,13 @@ async def reset_metrics(request: Request) -> JSONResponse:
                 }
             )
     except Exception as e:
+        # Log the full error details server-side only (CWE-209: prevent information exposure)
         logger.error(f"Error resetting metrics: {e}", exc_info=True)
+        # Return generic error message to client (don't expose stack trace)
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={
                 "status": "error",
-                "message": f"Error resetting metrics: {str(e)}"
+                "message": "An internal error occurred while resetting metrics"
             }
         )

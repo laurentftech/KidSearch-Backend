@@ -118,7 +118,7 @@ async def search(
             # Normalize scores to 0-1 range using min-max normalization
             max_score = max(raw_scores) if raw_scores else 1.0
             min_score = min(raw_scores) if raw_scores else 0.0
-            score_range = max_score - min_score if max_score != min_score else 1.0
+            score_range = max_score - min_score
 
             search_results = []
             for idx, hit in enumerate(hits_list):
@@ -127,7 +127,7 @@ async def search(
                 if score_range > 0:
                     normalized_score = (raw_scores[idx] - min_score) / score_range
                 else:
-                    # All scores are the same
+                    # All scores are the same (single result or identical scores)
                     normalized_score = 1.0 if raw_scores else 0.0
 
                 # Ensure score is in valid range

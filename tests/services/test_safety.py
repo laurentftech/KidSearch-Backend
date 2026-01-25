@@ -152,9 +152,11 @@ class TestSafetyFilter:
         """Test adding a domain to blocklist"""
         filter_obj = SafetyFilter()
 
-        filter_obj.add_blocked_domain("badsite.com")
+        test_domain = "badsite.com"  # Test literal, not a URL to parse
+        filter_obj.add_blocked_domain(test_domain)
 
-        assert "badsite.com" in filter_obj.blocked_domains
+        # Verify exact match in set (not substring search)
+        assert test_domain in filter_obj.blocked_domains
 
     def test_add_blocked_keyword(self):
         """Test adding a keyword to blocklist"""

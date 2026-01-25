@@ -7,7 +7,7 @@ import os
 import logging
 from datetime import timedelta
 from typing import Optional
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse, JSONResponse, HTMLResponse
 from pydantic import BaseModel
@@ -18,6 +18,28 @@ from ..auth import jwt_handler, oidc_client
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+def is_safe_redirect_url(url: Optional[str]) -> bool:
+    """
+    Vérifie qu'une URL de redirection est sûre (relative ou sans domaine externe).
+
+    Security: CWE-601 - Prevent open redirect vulnerabilities
+    """
+    if not url:
+        return True
+
+    # Remove backslashes that could bypass urlparse
+    url = url.replace('\\', '')
+
+    parsed = urlparse(url)
+
+    # URL must not have a network location (domain) or scheme (http://, https://, etc.)
+    # This ensures only relative paths are allowed
+    if parsed.netloc or parsed.scheme:
+        return False
+
+    return True
 
 
 class TokenResponse(BaseModel):
@@ -44,6 +66,10 @@ async def login(redirect_uri: Optional[str] = Query(None, description="Optional 
     if not auth_config.is_enabled or not auth_config.has_provider(AuthProvider.OIDC):
         raise HTTPException(status_code=400, detail="OIDC authentication is not configured")
 
+    # Validate redirect_uri to prevent open redirect attacks (CWE-601)
+    if redirect_uri and not is_safe_redirect_url(redirect_uri):
+        raise HTTPException(status_code=400, detail="Invalid redirect URI: external URLs not allowed")
+
     config = auth_config.get_oidc_config()
     callback_uri = redirect_uri or os.getenv("OIDC_API_REDIRECT_URI", "http://localhost:8080/api/auth/callback")
     auth_params = {
@@ -67,6 +93,10 @@ async def callback(
     auth_config = get_auth_config()
     if not auth_config.has_provider(AuthProvider.OIDC):
         raise HTTPException(status_code=400, detail="OIDC authentication is not configured")
+
+    # Validate redirect_uri to prevent open redirect attacks (CWE-601)
+    if redirect_uri and not is_safe_redirect_url(redirect_uri):
+        raise HTTPException(status_code=400, detail="Invalid redirect URI: external URLs not allowed")
 
     callback_uri = redirect_uri or os.getenv("OIDC_API_REDIRECT_URI", "http://localhost:8080/api/auth/callback")
     token_data = await oidc_client.exchange_code_for_token(code, callback_uri)

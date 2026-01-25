@@ -18,11 +18,10 @@ def generate_secrets():
 
     # Générer JWT_SECRET_KEY
     jwt_secret = secrets.token_hex(32)
-    print("Secret pour signer les JWT de l'API:")
+    print("Secret JWT généré avec succès")
     print()
-    print(f"   JWT_SECRET_KEY={jwt_secret}")
-    print()
-    print("   ⚠️  Ce secret doit être configuré dans .env:")
+    print("   ⚠️  Le secret sera écrit dans .env.secrets")
+    print("   ⚠️  NE PAS afficher ou logger ce secret en production")
     print()
     print("-" * 70)
     print()
