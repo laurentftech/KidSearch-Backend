@@ -3,14 +3,8 @@ import os
 import yaml
 import re
 import json
-from meilisearch_python_sdk import Client
-from .config import MEILI_URL, MEILI_KEY, SITES_CONFIG_FILE, LOG_FILE, STATUS_FILE, HISTORY_FILE
-
-@st.cache_resource
-def get_meili_client():
-    if MEILI_URL and MEILI_KEY:
-        return Client(MEILI_URL, MEILI_KEY)
-    return None
+from .config import SITES_CONFIG_FILE, LOG_FILE, STATUS_FILE, HISTORY_FILE
+from .typesense_client import get_typesense_client
 
 @st.cache_data(ttl=30)  # Cache for 30 seconds
 def load_sites_config():

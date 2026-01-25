@@ -14,9 +14,8 @@ from dashboard.src.auth import check_authentication, show_user_widget
 check_authentication()
 
 # Corrected imports for the new SDK and proper pathing
-from dashboard.src.meilisearch_client import get_meili_client
-from meilisearch_python_sdk.models.search import SearchResults
-from meilisearch_python_sdk.errors import MeilisearchApiError
+from dashboard.src.typesense_client import get_typesense_client
+from typesense.exceptions import TypesenseClientError
 from dashboard.src.config import INDEX_NAME
 from dashboard.src.i18n import get_translator
 
@@ -37,26 +36,24 @@ st.title(t("search.title"))
 st.markdown(t("search.subtitle"))
 
 # --- Initialization ---
-meili_client = get_meili_client()
+typesense_client = get_typesense_client()
 
-if not meili_client:
-    st.error(t("search.error_meili_connection"))
+from dashboard.src.typesense_client import check_collection_exists, get_collection_stats
+
+if not typesense_client:
+    st.error(t("search.error_typesense_connection"))
     st.stop()
 
 try:
-    index = meili_client.index(INDEX_NAME)
-    stats = index.get_stats()
-    if stats.number_of_documents == 0:
+    if not check_collection_exists(typesense_client, INDEX_NAME):
+        st.warning(f"⚠️ La collection '{INDEX_NAME}' n'existe pas.")
+        st.info("Veuillez la créer pour pouvoir effectuer une recherche.")
+        st.page_link("pages/17_⚙️_System_Status.py", label="Aller à la configuration du serveur", icon="⚙️")
+        st.stop()
+
+    stats = get_collection_stats(typesense_client, INDEX_NAME)
+    if stats and stats['number_of_documents'] == 0:
         st.warning(t("search.warning_no_documents"))
-        st.stop()
-except MeilisearchApiError as e:
-    if e.code == "index_not_found":
-        st.warning(f"⚠️ L'index '{INDEX_NAME}' n'existe pas.")
-        st.info("Veuillez le créer pour pouvoir effectuer une recherche.")
-        st.page_link("pages/18_☁️_Meilisearch_Server.py", label="Aller à la configuration du serveur", icon="☁️")
-        st.stop()
-    else:
-        st.error(f"{t('search.error_index_access')}: {e}")
         st.stop()
 except Exception as e:
     st.error(f"{t('search.error_index_access')}: {e}")
@@ -84,13 +81,15 @@ with st.form(key="search_form"):
 # --- Search logic ---
 if submitted and query:
     with st.spinner(t("search.spinner_searching")):
-        # Parameters updated to snake_case for the new SDK
         search_params = {
-            "limit": 20,
-            "attributes_to_retrieve": ['title', 'url', 'excerpt', 'site', 'images', 'timestamp'],
-            "attributes_to_highlight": ['title', 'excerpt'],
-            "highlight_pre_tag": "**",
-            "highlight_post_tag": "**"
+            "q": query,
+            "query_by": "title,excerpt,content", # Mandatory in Typesense
+            "per_page": 20,
+            "include_fields": ['title', 'url', 'excerpt', 'site', 'images', 'timestamp'],
+            "highlight_full_fields": 'title',
+            "highlight_fields": 'excerpt',
+            "highlight_start_tag": "**",
+            "highlight_end_tag": "**",
         }
 
         # --- Smart filters ---
@@ -99,37 +98,42 @@ if submitted and query:
         try:
             query_lang = detect(query)
             if query_lang in ['fr', 'en']:
-                filters.append(f"lang = {query_lang}")
+                filters.append(f"lang:={query_lang}") # Typesense syntax for exact match
                 st.caption(f"Search language detected: `{query_lang.upper()}`")
             else:
-                filters.append(f"lang = {st.session_state.get('lang', 'fr')}")
+                filters.append(f"lang:={st.session_state.get('lang', 'fr')}")
         except LangDetectException:
-            filters.append(f"lang = {st.session_state.get('lang', 'fr')}")
+            filters.append(f"lang:={st.session_state.get('lang', 'fr')}")
 
-        keywords = [f'"{word}"' for word in query.split() if len(word) > 2]
-        if keywords:
-            # Corrected filter to use 'excerpt' instead of 'content'
-            filters.append(f"title IN [{', '.join(keywords)}] OR excerpt IN [{', '.join(keywords)}]")
+        # Note: Typesense handles keyword matching differently. 
+        # We don't need to manually filter by keywords in the filter_by parameter usually.
+        # But if we want to enforce it:
+        # keywords = [f'"{word}"' for word in query.split() if len(word) > 2]
+        # if keywords:
+        #    filters.append(f"title:=[{', '.join(keywords)}] || excerpt:=[{', '.join(keywords)}]")
 
         if filters:
-            search_params["filter"] = " AND ".join(filters)
+            search_params["filter_by"] = " && ".join(filters) # Typesense uses && for AND
 
-        search_query = query
         if use_hybrid:
-            # Hybrid search parameters updated to snake_case
-            search_params["hybrid"] = {
-                "semantic_ratio": semantic_ratio,
-                "embedder": "default"
-            }
+            # Typesense hybrid search requires vector_query parameter.
+            # Since we don't have the vector for the query here (client-side),
+            # we can't do true hybrid search directly from Streamlit without an embedding model.
+            # For now, we'll fallback to keyword search and warn the user.
+            st.warning("⚠️ Hybrid search requires vector generation which is not yet implemented in this dashboard view. Falling back to keyword search.")
+            
+            # If we had the vector, it would look like this:
+            # search_params["vector_query"] = f"embedding_vec:([{vector_values}], k:100, alpha: {semantic_ratio})"
 
         try:
-            # Use the new SDK which returns a SearchResults object
-            response: SearchResults = index.search(search_query, **search_params)
-            hits = response.hits
+            collection = typesense_client.collections[INDEX_NAME]
+            response = collection.documents.search(search_params)
+            hits = response['hits']
+            
             st.success(t("search.results_summary").format(
                 count=len(hits),
-                total=response.estimated_total_hits,
-                time=response.processing_time_ms
+                total=response['found'],
+                time=response['search_time_ms']
             ))
             st.markdown("---")
 
@@ -137,21 +141,25 @@ if submitted and query:
                 st.warning(t("search.no_results_found"))
             else:
                 for hit in hits:
+                    document = hit.get('document', {})
+                    highlight = hit.get('highlight', {})
+                    
                     col1, col2 = st.columns([1, 4])
                     with col1:
-                        if hit.get('images') and isinstance(hit['images'], list) and len(hit['images']) > 0:
-                            st.image(hit['images'][0]['url'], width=150)
+                        images = document.get('images')
+                        if images and isinstance(images, list) and len(images) > 0:
+                            st.image(images[0]['url'], width=150)
                         else:
                             st.image("https://via.placeholder.com/150?text=No+Image", width=150)
 
                     with col2:
-                        title = hit.get('_formatted', {}).get('title', hit.get('title', t('search.no_title')))
-                        excerpt = hit.get('_formatted', {}).get('excerpt', hit.get('excerpt', ''))
-                        url = hit.get('url', '#')
-                        site = hit.get('site', t('search.unknown_site'))
-                        timestamp = hit.get('timestamp')
+                        title = highlight.get('title', {}).get('value', document.get('title', t('search.no_title')))
+                        excerpt = highlight.get('excerpt', {}).get('snippet', document.get('excerpt', ''))
+                        url = document.get('url', '#')
+                        site = document.get('site', t('search.unknown_site'))
+                        timestamp = document.get('timestamp')
 
-                        st.markdown(f"#### [{title}]({url})")
+                        st.markdown(f"#### [{title}]({url})", unsafe_allow_html=True)
                         st.markdown(f"<small>{t('search.site')}: **{site}**</small>", unsafe_allow_html=True)
                         if timestamp:
                             date = datetime.fromtimestamp(timestamp)
@@ -161,7 +169,7 @@ if submitted and query:
 
                     st.markdown("---")
 
-        except MeilisearchApiError as e:
+        except TypesenseClientError as e:
             st.error(f"{t('search.error_during_search')}: {e}")
         except Exception as e:
             st.error(f"{t('search.error_during_search')}: An unexpected error occurred: {e}")

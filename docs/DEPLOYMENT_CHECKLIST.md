@@ -9,7 +9,7 @@ Cette checklist vous guide pas à pas pour déployer KidSearch avec l'authentifi
 ## ✅ Étape 1: Générer le secret JWT
 
 ```bash
-cd /path/to/MeilisearchCrawler
+cd /path/to/KidSearch
 python scripts/generate_secrets.py
 ```
 
@@ -54,8 +54,8 @@ OIDC_CLIENT_SECRET=your_client_secret
 ALLOWED_EMAILS=laurent@example.com,user@example.com
 
 # === MEILISEARCH ===
-MEILI_URL=http://meilisearch:7700
-MEILI_KEY=masterKey
+TYPESENSE_URL=http://meilisearch:8108
+TYPESENSE_API_KEY=masterKey
 INDEX_NAME=kidsearch
 ```
 
@@ -282,6 +282,49 @@ grep "JWT token issued" data/logs/auth.log
 # Vérifier les logs du Dashboard
 grep "X-Token-User-Email" data/logs/auth.log
 ```
+
+### Problème: Erreurs "no token found" pour `/_stcore/*` dans les logs
+
+**Symptôme**:
+```
+ERROR http.handlers.authentication auth provider returned error
+{"provider": "authorizer", "error": "no token found"}
+"uri": "/_stcore/health" ou "/_stcore/host-config"
+```
+
+**Cause**: Streamlit fait des requêtes AJAX vers ses endpoints techniques qui ne transmettent pas toujours les cookies authcrunch.
+
+**Solution recommandée**: Utiliser `log_skip` pour filtrer ces erreurs des logs. Modifiez votre Caddyfile:
+
+```caddy
+http://kidsearch-admin.gandulf78.synology.me {
+    authorize with admin_only
+
+    log {
+        output file /data/logs/kidsearch-dashboard-access.log
+    }
+
+    # Matcher pour Streamlit healthchecks
+    @streamlit_healthcheck {
+        path /_stcore/*
+    }
+
+    # Filtrer ces requêtes des logs pour éviter les ERROR rouges
+    log_skip @streamlit_healthcheck
+
+    reverse_proxy kidsearch-all:8501 {
+        import common_reverse_proxy
+        import websocket_support
+    }
+}
+```
+
+**Avantages**:
+- ✅ Pas d'ERROR rouges dans les logs pour les healthchecks bénins
+- ✅ Configuration simple (pas de `handle` complexes qui cassent l'injection de headers)
+- ✅ authcrunch injecte correctement les headers pour tout le reste
+
+**Note de sécurité**: Les erreurs 401 se produisent toujours pour `/_stcore/*` (ce qui est normal), elles sont simplement filtrées des logs.
 
 ### Problème: JWT invalide (API KidSearch)
 

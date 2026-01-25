@@ -1,17 +1,15 @@
 services:
-  # Meilisearch - Search engine
-  meilisearch:
-    image: getmeili/meilisearch:v1.24.0
-    container_name: kidsearch-meilisearch
+  # Typesense - In-memory Search Engine
+  typesense:
+    image: typesense/typesense:29.0
+    container_name: kidsearch-typesense
     restart: unless-stopped
     ports:
-      - "7700:7700"
+      - "8108:8108"
     environment:
-      MEILI_MASTER_KEY: ${MEILI_KEY:-masterKey}
-      MEILI_NO_ANALYTICS: true
-      # Increased for better caching - keeps index in RAM to avoid HDD cold starts
-      MEILI_MAX_INDEXING_MEMORY: 2GB
-      MEILI_MAX_INDEXING_THREADS: 2
+      TYPESENSE_DATA_DIR: /data
+      TYPESENSE_API_KEY: ${TYPESENSE_API_KEY:-masterKey}
+      TYPESENSE_ENABLE_CORS: "true"
     # Docker memory limits - guarantee RAM allocation
     deploy:
       resources:
@@ -20,19 +18,12 @@ services:
         reservations:
           memory: 1.5G
     volumes:
-      # Use Docker volume instead of hardcoded Synology path
-      - ./meili_data:/meili_data
+      - ./typesense_data:/data
     networks:
       - kidsearch-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:7700/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
 
   embeddings_small:
-    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.8.2
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.8.3
     container_name: embeddings_small
     restart: unless-stopped
     networks:
@@ -61,6 +52,7 @@ services:
 
   # KidSearch Dashboard & API (All-in-one)
   kidsearch-all:
+    build: .
     image: gandulf78/kidsearch:latest
     container_name: kidsearch-all
     restart: unless-stopped
@@ -77,6 +69,9 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-info}
 
       # === AUTHENTICATION CONFIGURATION ===
+
+      # Disable authentication completely (for development)
+      AUTH_DISABLED: ${AUTH_DISABLED:-false}
 
       # Force a single auth method (optional)
       # Options: proxy, oidc, google, github, simple
@@ -127,15 +122,49 @@ services:
       API_ENABLED: ${API_ENABLED:-true}
       API_WORKERS: ${API_WORKERS:-2}
 
-      # Meilisearch connection
-      MEILI_URL: http://meilisearch:7700
-      MEILI_KEY: ${MEILI_KEY:-masterKey}
+      # Typesense connection
+      TYPESENSE_URL: ${TYPESENSE_URL:-http://typesense:8108}
+      TYPESENSE_API_KEY: ${TYPESENSE_API_KEY:-masterKey}
       INDEX_NAME: ${INDEX_NAME:-kidsearch}
 
-      # Other settings...
+      # Embedding configuration
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-huggingface}
+      HUGGINGFACE_API_URL: ${HUGGINGFACE_API_URL:-http://embeddings_small:80/embed}
+      HUGGINGFACE_MODEL: ${HUGGINGFACE_MODEL:-sentence-transformers/all-MiniLM-L6-v2}
+      EMBEDDING_BATCH_DELAY: ${EMBEDDING_BATCH_DELAY:-2}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_EMBEDDING_BATCH_SIZE: ${GEMINI_EMBEDDING_BATCH_SIZE:-20}
+
+      # Reranking configuration
+      RERANKING_ENABLED: ${RERANKING_ENABLED:-true}
+      RERANKER_API_URL: ${RERANKER_API_URL:-http://embeddings_small:80/embed}
+      RERANKER_MODEL: ${RERANKER_MODEL:-sentence-transformers/all-MiniLM-L6-v2}
+      RERANKER_BATCH_SIZE: ${RERANKER_BATCH_SIZE:-3}
+      RERANKER_MAX_CHARS: ${RERANKER_MAX_CHARS:-200}
+      RERANKER_CACHE_SIZE: ${RERANKER_CACHE_SIZE:-4096}
+      RERANKER_TIMEOUT: ${RERANKER_TIMEOUT:-12}
+
+      # Search weights
+      MEILISEARCH_WEIGHT: ${MEILISEARCH_WEIGHT:-0.7}
+      CSE_WEIGHT: ${CSE_WEIGHT:-0.3}
+
+      # Google CSE
+      GOOGLE_CSE_API_KEY: ${GOOGLE_CSE_API_KEY:-}
+      GOOGLE_CSE_ID: ${GOOGLE_CSE_ID:-}
+
+      # Wiki configuration
+      WIKI_API_URL: ${WIKI_API_URL:-}
+      WIKI_SITE_URL: ${WIKI_SITE_URL:-}
+      WIKI_SITE_NAME: ${WIKI_SITE_NAME:-}
+      WIKI_2_API_URL: ${WIKI_2_API_URL:-}
+      WIKI_2_SITE_URL: ${WIKI_2_SITE_URL:-}
+      WIKI_2_SITE_NAME: ${WIKI_2_SITE_NAME:-}
+
+      # Other settings
       FRONTEND_URL: ${FRONTEND_URL:-}
       DISPLAY_HOST: ${DISPLAY_HOST:-}
-      # ... (rest of the variables)
+      DASHBOARD_DISPLAY_HOST: ${DASHBOARD_DISPLAY_HOST:-}
+      API_DISPLAY_HOST: ${API_DISPLAY_HOST:-}
 
     volumes:
       - ./data:/app/data
@@ -144,8 +173,8 @@ services:
     networks:
       - kidsearch-network
     depends_on:
-      meilisearch:
-        condition: service_healthy
+      typesense:
+        condition: service_started
       embeddings_small:
         condition: service_healthy
     healthcheck:

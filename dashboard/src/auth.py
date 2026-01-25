@@ -9,7 +9,7 @@ from argon2 import PasswordHasher
 import requests
 import logging
 from typing import Optional, Dict
-from meilisearchcrawler.auth_config import get_auth_config, AuthProvider
+from kidsearch.auth_config import get_auth_config, AuthProvider
 from streamlit_local_storage import LocalStorage
 import jwt
 from dashboard.src.i18n import get_translator
@@ -53,7 +53,7 @@ def _verify_jwt_token(token: str) -> Optional[Dict]:
 
 def _create_session(user_info, auth_method, t, token=None):
     """Crée et sauvegarde une session utilisateur."""
-    from meilisearchcrawler.session_manager import get_session_manager
+    from kidsearch.session_manager import get_session_manager
     session_manager = get_session_manager()
     session_id = session_manager.create_session(
         email=user_info.get("email", ""),
@@ -77,7 +77,7 @@ def check_authentication():
     """
     Vérifie si l'utilisateur est authentifié et gère le flux de connexion.
     """
-    from meilisearchcrawler.session_manager import get_session_manager
+    from kidsearch.session_manager import get_session_manager
     t = get_translator(st.session_state.get('lang', 'fr'))
 
     # 1. Check for existing Streamlit session state
@@ -275,7 +275,7 @@ def _show_auth_choices(providers, t):
 
 def logout():
     """Déconnecte l'utilisateur."""
-    from meilisearchcrawler.session_manager import get_session_manager
+    from kidsearch.session_manager import get_session_manager
     if 'persistent_session_id' in st.session_state:
         get_session_manager().delete_session(st.session_state['persistent_session_id'])
 

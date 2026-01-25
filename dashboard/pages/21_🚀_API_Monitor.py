@@ -14,7 +14,7 @@ import requests
 
 # Use absolute imports from the project root
 from dashboard.src.i18n import get_translator
-from dashboard.src.meilisearch_client import get_meili_client
+from dashboard.src.typesense_client import get_typesense_client
 
 # This is a hack to make sure the app is launched from the root of the project
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
@@ -94,17 +94,18 @@ with col2:
 
 with col3:
     @st.cache_data(ttl=30, show_spinner=False)
-    def get_meilisearch_doc_count():
-        meili_client = get_meili_client()
-        if meili_client:
+    def get_typesense_doc_count():
+        from dashboard.src.typesense_client import get_collection_stats
+        typesense_client = get_typesense_client()
+        if typesense_client:
             try:
-                stats = meili_client.index(INDEX_NAME).get_stats()
-                return getattr(stats, 'number_of_documents', 0)
+                stats = get_collection_stats(typesense_client, INDEX_NAME)
+                return stats.get('number_of_documents', 0) if stats else None
             except Exception:
                 return None
         return None
 
-    num_docs = get_meilisearch_doc_count()
+    num_docs = get_typesense_doc_count()
     if num_docs is not None:
         st.metric("Documents", f"{num_docs:,}")
     else:
@@ -280,7 +281,7 @@ with st.form("test_search_form"):
         )
 
     with col2:
-        test_lang = st.selectbox("Langue", ["fr", "en"])
+        test_lang = st.selectbox("Langue", ["all", "fr", "en"], index=0)
 
     col1, col2, col3 = st.columns(3)
 
@@ -318,7 +319,7 @@ if submit and test_query:
                 col1, col2, col3 = st.columns(3)
 
                 with col1:
-                    st.metric("Résultats Meilisearch", stats['meilisearch_results'])
+                    st.metric("Résultats Typesense", stats['typesense_results'])
 
                 with col2:
                     st.metric("Résultats Google CSE", stats['cse_results'])

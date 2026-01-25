@@ -41,6 +41,16 @@ crawler_cache.json
 models_cache/
 .DS_Store
 
+# Testing & Coverage
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+junit.xml
+*.db-journal
+
 # Crawler sites configuration
 config/sites.yml
 config/sites-complet.yml
@@ -54,8 +64,9 @@ crawler.log
 /data/crawler_cache.db
 /data/logs/*.log
 
-# Meilisearch data
+# Meilisearch/Typesense data
 meili_data/
+typesense_data/
 
 # Streamlit
 /.streamlit/
@@ -97,7 +108,6 @@ TROUBLESHOOTING.md
 # Configuration Docker temporaire
 docker-compose.performance.yml
 docker-compose.synology*.yml
-.dockerignore
 .env.docker.example
 
 /data/

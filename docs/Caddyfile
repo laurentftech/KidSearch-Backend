@@ -62,28 +62,34 @@ https://auth.gandulf78.synology.me {
 
 # === KIDSEARCH DASHBOARD ===
 https://kidsearch-admin.gandulf78.synology.me {
-    # 1. Autoriser l'utilisateur avec authcrunch
-    authorize with admin_only
-
-    # 2. Configuration du logging
-    log {
-        output file /data/logs/kidsearch-dashboard-access.log
-    }
-
-    # 3. Reverse proxy vers le dashboard
-    # authcrunch injecte automatiquement les headers:
+    # Autorisation requise pour tout le site
+    # authcrunch vérifie l'authentification et injecte automatiquement:
     # - X-Token-User-Email
     # - X-Token-User-Name
     # - X-Token-Subject
     # - X-Token-User-Roles
+    authorize with admin_only
+
+    log {
+        output file /data/logs/kidsearch-dashboard-access.log
+    }
+
+    # Matcher pour les endpoints internes Streamlit (healthcheck, assets)
+    # Ces endpoints sont techniques et ne contiennent pas de données sensibles
+    # Streamlit fait des requêtes AJAX qui peuvent ne pas toujours inclure les cookies
+    @streamlit_healthcheck {
+        path /_stcore/*
+    }
+
+    # Filtrer ces requêtes des logs pour éviter les ERROR rouges
+    # Les erreurs 401 se produisent toujours mais ne sont pas loggées
+    log_skip @streamlit_healthcheck
+
     reverse_proxy kidsearch-all:8501 {
-        # Headers standards
         header_up Host {host}
         header_up X-Real-IP {remote_host}
         header_up X-Forwarded-For {remote_host}
         header_up X-Forwarded-Proto {scheme}
-
-        # Support WebSocket pour Streamlit
         header_up Connection {>Connection}
         header_up Upgrade {>Upgrade}
     }

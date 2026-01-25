@@ -22,8 +22,8 @@ Edit `.env` and configure:
 
 ```bash
 # Meilisearch
-MEILI_URL=http://meilisearch:7700
-MEILI_KEY=masterKey
+TYPESENSE_URL=http://meilisearch:8108
+TYPESENSE_API_KEY=masterKey
 INDEX_NAME=kidsearch
 
 # API Configuration
@@ -77,7 +77,7 @@ docker-compose up -d kidsearch-dashboard kidsearch-api
 - **Dashboard**: http://localhost:8501
 - **API Documentation**: http://localhost:8080/api/docs
 - **API ReDoc**: http://localhost:8080/api/redoc
-- **Meilisearch**: http://localhost:7700
+- **Meilisearch**: http://localhost:8108
 
 ### 5. Initial Setup
 
@@ -322,7 +322,7 @@ docker exec kidsearch-all env | grep API_ENABLED
 2. Check Meilisearch connection:
 
 ```bash
-docker exec kidsearch-all curl http://meilisearch:7700/health
+docker exec kidsearch-all curl http://meilisearch:8108/health
 ```
 
 ### Container crashes / Out of memory
@@ -364,7 +364,7 @@ CACHE_DAYS=7
 openssl rand -base64 32
 
 # Update .env
-MEILI_KEY=<generated_key>
+TYPESENSE_API_KEY=<generated_key>
 ```
 
 2. **Use HTTPS:**
@@ -426,8 +426,8 @@ If you already have Meilisearch running:
 2. Update `.env`:
 
 ```bash
-MEILI_URL=http://your-meilisearch-host:7700
-MEILI_KEY=your_master_key
+TYPESENSE_URL=http://your-meilisearch-host:8108
+TYPESENSE_API_KEY=your_master_key
 ```
 
 ### Kubernetes
@@ -445,8 +445,8 @@ For Kubernetes deployment, see `k8s/` directory (coming soon).
 | `API_HOST` | `0.0.0.0` | API host |
 | `API_WORKERS` | `4` | Number of API worker processes |
 | `API_ENABLED` | `true` | Enable/disable API |
-| `MEILI_URL` | `http://localhost:7700` | Meilisearch URL |
-| `MEILI_KEY` | - | Meilisearch master key |
+| `TYPESENSE_URL` | `http://localhost:8108` | Meilisearch URL |
+| `TYPESENSE_API_KEY` | - | Meilisearch master key |
 | `INDEX_NAME` | `kidsearch` | Meilisearch index name |
 | `RERANKING_ENABLED` | `false` | Enable semantic reranking |
 | `RERANKER_MODEL` | `snowflake-arctic-embed-m` | Reranking model |

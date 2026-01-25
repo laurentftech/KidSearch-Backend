@@ -11,12 +11,12 @@ import sys
 import os
 
 # Corrected imports to be absolute from the project root
-from dashboard.src.meilisearch_client import get_meili_client
+from dashboard.src.typesense_client import get_typesense_client
 from dashboard.src.config import INDEX_NAME
 from dashboard.src.state import is_crawler_running
 from dashboard.src.i18n import get_translator
-from meilisearchcrawler.cache_db import CacheDB
-from meilisearch_python_sdk.errors import MeilisearchApiError
+from kidsearch.cache_db import CacheDB
+from typesense.exceptions import TypesenseClientError
 
 # This is a hack to make sure the app is launched from the root of the project
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
@@ -38,22 +38,18 @@ show_user_widget(t)
 st.title(t("tree.title"))
 st.markdown(t("tree.subtitle"))
 
-# --- MeiliSearch Index Check ---
-meili_client = get_meili_client()
-if meili_client:
-    try:
-        meili_client.get_index(INDEX_NAME)
-    except MeilisearchApiError as e:
-        if e.code == "index_not_found":
-            st.warning(f"⚠️ L'index '{INDEX_NAME}' n'existe pas.")
-            st.info("Veuillez le créer pour visualiser l'arborescence des pages.")
-            st.page_link("pages/18_☁️_Meilisearch_Server.py", label="Aller à la configuration du serveur", icon="☁️")
-            st.stop()
-        else:
-            st.error(f"Erreur de connexion à Meilisearch: {e}")
-            st.stop()
+# --- Typesense Collection Check ---
+from dashboard.src.typesense_client import check_collection_exists
+
+typesense_client = get_typesense_client()
+if typesense_client:
+    if not check_collection_exists(typesense_client, INDEX_NAME):
+        st.warning(f"⚠️ La collection '{INDEX_NAME}' n'existe pas.")
+        st.info("Veuillez la créer pour visualiser l'arborescence des pages.")
+        st.page_link("pages/17_⚙️_System_Status.py", label="Aller à la configuration du serveur", icon="⚙️")
+        st.stop()
 else:
-    st.error("La connexion à Meilisearch n'est pas configurée. Vérifiez votre fichier .env.")
+    st.error("La connexion à Typesense n'est pas configurée. Vérifiez votre fichier .env.")
     st.stop()
 
 running = is_crawler_running()
@@ -71,15 +67,21 @@ def load_cache_urls_from_db():
         return []
 
 try:
-    index_ref = meili_client.index(INDEX_NAME)
-
     sites_list = [t("tree.all_sites")]
     with st.spinner(t("tree.loading_sites")):
         try:
-            # Corrected: Use new SDK syntax (keyword args) and result object
-            facet_result = index_ref.search("", facets=['site'], limit=0)
-            if facet_result.facet_distribution and 'site' in facet_result.facet_distribution:
-                sites_list.extend(list(facet_result.facet_distribution['site'].keys()))
+            # Use Typesense facet search
+            facet_params = {
+                'q': '*',
+                'facet_by': 'site',
+                'max_facet_values': 100,
+                'per_page': 0
+            }
+            facet_result = typesense_client.collections[INDEX_NAME].documents.search(facet_params)
+            if facet_result.get('facet_counts') and len(facet_result['facet_counts']) > 0:
+                site_facets = facet_result['facet_counts'][0]
+                if 'counts' in site_facets:
+                    sites_list.extend([item['value'] for item in site_facets['counts']])
         except Exception:
             pass
 
@@ -93,13 +95,16 @@ try:
 
     with st.spinner(t("tree.loading_pages").format(max_pages=max_pages)):
         params = {
-            'limit': max_pages,
-            'fields': ['url', 'site', 'title', 'indexed_at', 'last_modified', 'timestamp', 'last_crawled_at', 'content_hash']
+            'q': '*',
+            'per_page': max_pages,
+            'include_fields': 'url,site,title,indexed_at,last_modified,timestamp,last_crawled_at,content_hash'
         }
         if filter_site != t("tree.all_sites"):
-            params['filter'] = f'site = "{filter_site}"'
-        # The new SDK expects a single dictionary argument for parameters
-        documents = index_ref.get_documents(**params).results
+            params['filter_by'] = f'site:={filter_site}'
+
+        # Search documents using Typesense
+        result = typesense_client.collections[INDEX_NAME].documents.search(params)
+        documents = [hit['document'] for hit in result.get('hits', [])]
 
     if not documents:
         st.warning(t("tree.no_pages_found"))

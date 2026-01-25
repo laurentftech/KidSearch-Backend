@@ -155,7 +155,7 @@ class ServiceManager:
             sys.executable,
             "-m",
             "uvicorn",
-            "meilisearchcrawler.api.server:app",
+            "kidsearch.api.server:app",
             "--host", host,
             "--port", str(port),
             "--workers", str(workers),

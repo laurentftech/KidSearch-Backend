@@ -18,6 +18,6 @@ HISTORY_FILE = os.path.join(DATA_DIR, "crawl_history.json")
 # Load environment variables from .env file in the project root
 load_dotenv(os.path.join(BASE_DIR, ".env"))
 
-MEILI_URL = os.getenv("MEILI_URL")
-MEILI_KEY = os.getenv("MEILI_KEY")
+TYPESENSE_URL = os.getenv("TYPESENSE_URL", "http://localhost:8108")
+TYPESENSE_API_KEY = os.getenv("TYPESENSE_API_KEY", "masterKey")
 INDEX_NAME = os.getenv("INDEX_NAME", "kidsearch")

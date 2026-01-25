@@ -5,10 +5,10 @@ import time
 import subprocess
 import sys
 import os
-from meilisearch_python_sdk.errors import MeilisearchApiError
+from typesense.exceptions import TypesenseClientError
 
 from dashboard.src.state import start_crawler, stop_crawler, clear_cache, is_crawler_running
-from dashboard.src.utils import load_sites_config, load_cache_stats, parse_logs_for_errors, get_meili_client
+from dashboard.src.utils import load_sites_config, load_cache_stats, parse_logs_for_errors, get_typesense_client
 from dashboard.src.config import CRAWLER_SCRIPT, INDEX_NAME
 from dashboard.src.i18n import get_translator
 
@@ -31,22 +31,19 @@ show_user_widget(t)
 
 st.header(t("controls.title"))
 
-# --- MeiliSearch Index Check ---
-client = get_meili_client()
+# --- Typesense Collection Check ---
+from dashboard.src.typesense_client import check_collection_exists
+
+client = get_typesense_client()
 index_exists = False
 if client:
-    try:
-        client.get_index(INDEX_NAME)
-        index_exists = True
-    except MeilisearchApiError as e:
-        if e.code == "index_not_found":
-            st.error(f"⚠️ L'index '{INDEX_NAME}' n'existe pas.")
-            st.info("Veuillez le créer avant de lancer un crawl.")
-            st.page_link("pages/18_☁️_Meilisearch_Server.py", label="Aller à la configuration du serveur", icon="☁️")
-        else:
-            st.error(f"Erreur de connexion à Meilisearch: {e}")
+    index_exists = check_collection_exists(client, INDEX_NAME)
+    if not index_exists:
+        st.error(f"⚠️ La collection '{INDEX_NAME}' n'existe pas.")
+        st.info("Veuillez la créer avant de lancer un crawl.")
+        st.page_link("pages/17_⚙️_System_Status.py", label="Aller à la configuration du serveur", icon="⚙️")
 else:
-    st.error("La connexion à Meilisearch n'est pas configurée. Vérifiez votre fichier .env.")
+    st.error("La connexion à Typesense n'est pas configurée. Vérifiez votre fichier .env.")
 
 running = is_crawler_running()
 controls_disabled = running or not index_exists

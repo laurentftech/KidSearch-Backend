@@ -14,7 +14,7 @@ if BASE_DIR not in sys.path:
 
 from dashboard.src.i18n import get_translator
 from dashboard.src.state import is_crawler_running
-from meilisearchcrawler.cache_db import CacheDB
+from kidsearch.cache_db import CacheDB
 
 # This is a hack to make sure the app is launched from the root of the project
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))

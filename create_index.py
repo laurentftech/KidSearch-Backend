@@ -1,51 +1,98 @@
-import requests
-import os
-from dotenv import load_dotenv
+#!/usr/bin/env python3
+"""Create Typesense collection with schema"""
 
-# Charger les variables d'environnement depuis le fichier .env
+import os
+import sys
+from dotenv import load_dotenv
+import typesense
+
+# Load environment variables
 load_dotenv()
 
-MEILI_URL = os.getenv("MEILI_URL")
-API_KEY = os.getenv("MEILI_KEY")
+TYPESENSE_URL = os.getenv("TYPESENSE_URL", "http://localhost:8108")
+TYPESENSE_API_KEY = os.getenv("TYPESENSE_API_KEY", "masterKey")
 INDEX_NAME = os.getenv("INDEX_NAME", "kidsearch")
+EMBEDDING_PROVIDER = os.getenv("EMBEDDING_PROVIDER", "none").lower()
+EMBEDDING_DIMENSIONS = int(os.getenv("EMBEDDING_DIMENSIONS", "768"))
 
-if not MEILI_URL or not API_KEY:
-    print("Erreur: MEILI_URL et MEILI_KEY doivent être définis dans le fichier .env")
-    exit(1)
+print(f"Configuration:")
+print(f"  URL: {TYPESENSE_URL}")
+print(f"  Collection: {INDEX_NAME}")
+print(f"  Embeddings: {EMBEDDING_PROVIDER}")
+if EMBEDDING_PROVIDER in ["gemini", "huggingface", "sentence_transformer"]:
+    print(f"  Dimensions: {EMBEDDING_DIMENSIONS}")
 
-headers = {"Authorization": f"Bearer {API_KEY}"}
+# Parse URL
+url_parts = TYPESENSE_URL.replace('http://', '').replace('https://', '').split(':')
+host = url_parts[0]
+port = int(url_parts[1]) if len(url_parts) > 1 else 8108
+protocol = 'https' if 'https://' in TYPESENSE_URL else 'http'
 
-print(f"Vérification de l'existence de l'index '{INDEX_NAME}' sur {MEILI_URL}...")
+# Create client
+print(f"\nConnexion à Typesense ({host}:{port})...")
+client = typesense.Client({
+    'nodes': [{
+        'host': host,
+        'port': str(port),
+        'protocol': protocol
+    }],
+    'api_key': TYPESENSE_API_KEY,
+    'connection_timeout_seconds': 10
+})
+
+# Define schema
+schema = {
+    'name': INDEX_NAME,
+    'enable_nested_fields': True,
+    'fields': [
+        {'name': 'id', 'type': 'string'},
+        {'name': 'site', 'type': 'string', 'facet': True},
+        {'name': 'url', 'type': 'string'},
+        {'name': 'title', 'type': 'string'},
+        {'name': 'excerpt', 'type': 'string'},
+        {'name': 'content', 'type': 'string'},
+        {'name': 'images', 'type': 'object[]'},
+        {'name': 'lang', 'type': 'string', 'facet': True},
+        {'name': 'timestamp', 'type': 'int64'},
+        {'name': 'indexed_at', 'type': 'string'},
+        {'name': 'last_crawled_at', 'type': 'string'},
+        {'name': 'content_hash', 'type': 'string'},
+    ]
+}
+
+# Add vector fields if embeddings enabled
+if EMBEDDING_PROVIDER in ["gemini", "huggingface", "sentence_transformer"]:
+    schema['fields'].extend([
+        {'name': 'embedding_vec', 'type': 'float[]', 'num_dim': EMBEDDING_DIMENSIONS},
+        {'name': 'embedding_provider', 'type': 'string', 'optional': True},
+        {'name': 'embedding_model', 'type': 'string', 'optional': True},
+        {'name': 'embedding_dimensions', 'type': 'int32', 'optional': True},
+    ])
+    print(f"✨ Support des embeddings activé ({EMBEDDING_DIMENSIONS} dimensions)")
 
 try:
-    # 1. Vérifier si l'index existe déjà
-    r_get = requests.get(f"{MEILI_URL}/indexes/{INDEX_NAME}", headers=headers, timeout=5)
+    # Check if collection exists
+    print(f"\nVérification de l'existence de la collection '{INDEX_NAME}'...")
+    try:
+        existing = client.collections[INDEX_NAME].retrieve()
+        print(f"✅ La collection '{INDEX_NAME}' existe déjà.")
+        print(f"   Documents: {existing.get('num_documents', 0)}")
+        print(f"   Champs: {len(existing.get('fields', []))}")
+        sys.exit(0)
+    except Exception:
+        pass  # Collection doesn't exist, create it
 
-    if r_get.status_code == 200:
-        print(f"✅ L'index '{INDEX_NAME}' existe déjà. Aucune action n'est nécessaire.")
-        print("   Détails de l'index:", r_get.json())
+    # Create collection
+    print(f"\nCréation de la collection '{INDEX_NAME}'...")
+    result = client.collections.create(schema)
+    print(f"✅ Collection '{INDEX_NAME}' créée avec succès!")
+    print(f"   Champs: {len(schema['fields'])}")
 
-    # 2. Si l'index n'existe pas (erreur 404), alors on le crée
-    elif r_get.status_code == 404:
-        print(f"L'index '{INDEX_NAME}' n'existe pas. Tentative de création...")
-        r_post = requests.post(
-            f"{MEILI_URL}/indexes",
-            headers=headers,
-            json={"uid": INDEX_NAME, "primaryKey": "id"},
-            timeout=5
-        )
-        r_post.raise_for_status() # Lève une exception si la création échoue
-
-        print("\nRéponse de Meilisearch :")
-        print(f"  Status: {r_post.status_code}")
-        print(f"  Contenu: {r_post.json()}")
-        print(f"\n✅ L'index '{INDEX_NAME}' a été créé avec succès.")
-
-    # 3. Gérer les autres codes d'erreur possibles
+    if EMBEDDING_PROVIDER in ["gemini", "huggingface", "sentence_transformer"]:
+        print(f"   Vector search: Activé ({EMBEDDING_DIMENSIONS}D)")
     else:
-        print(f"\n❌ Erreur inattendue lors de la vérification de l'index.")
-        print(f"   Status: {r_get.status_code}")
-        print(f"   Contenu: {r_get.text}")
+        print(f"   Vector search: Désactivé (recherche par mots-clés uniquement)")
 
-except requests.exceptions.RequestException as e:
-    print(f"\n❌ Erreur de connexion à Meilisearch: {e}")
+except Exception as e:
+    print(f"\n❌ Erreur: {e}")
+    sys.exit(1)

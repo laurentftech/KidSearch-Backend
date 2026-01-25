@@ -179,6 +179,53 @@ Vérifiez que `inject headers with claims` est bien dans la policy d'autorisatio
 
 Vérifiez que `JWT_SECRET_KEY` est correctement configuré dans `.env` de l'application KidSearch.
 
+### Erreurs "no token found" pour `/_stcore/*` dans les logs Caddy
+
+**Symptôme:**
+```
+ERROR http.handlers.authentication auth provider returned error
+{"provider": "authorizer", "error": "no token found"}
+"uri": "/_stcore/health"
+```
+
+**Cause:**
+Streamlit fait des requêtes AJAX vers des endpoints techniques (`/_stcore/*`) qui peuvent ne pas toujours inclure les cookies authcrunch. Ces endpoints sont des healthchecks et ne contiennent pas de données sensibles.
+
+**Solution recommandée (avec `log_skip`):**
+
+La meilleure approche est de **filtrer ces logs** avec `log_skip` tout en gardant l'authentification simple :
+
+```caddy
+http://kidsearch-admin.gandulf78.synology.me {
+    authorize with admin_only
+
+    log {
+        output file /data/logs/kidsearch-dashboard-access.log
+    }
+
+    # Matcher pour identifier les endpoints Streamlit internes
+    @streamlit_healthcheck {
+        path /_stcore/*
+    }
+
+    # Filtrer ces requêtes des logs pour éviter les ERROR rouges
+    log_skip @streamlit_healthcheck
+
+    reverse_proxy kidsearch-all:8501 {
+        import common_reverse_proxy
+        import websocket_support
+    }
+}
+```
+
+**Avantages:**
+- ✅ Pas d'ERROR rouges dans les logs pour les healthchecks bénins
+- ✅ authcrunch injecte correctement les headers (pas de `handle` complexes)
+- ✅ Configuration simple et maintenable
+- ✅ Les vrais problèmes restent visibles
+
+**Sécurité:** C'est sûr car `/_stcore/*` ne contient que des métadonnées techniques, pas de données utilisateur. L'authentification continue de s'appliquer (les erreurs 401 se produisent toujours), elles sont simplement filtrées des logs.
+
 ### Logs
 
 ```bash
@@ -187,11 +234,15 @@ docker-compose logs -f kidsearch-all | grep auth
 
 # Vérifier les headers reçus
 tail -f data/logs/auth.log
+
+# Logs Caddy (filtrer les erreurs authcrunch)
+docker-compose logs -f caddy | grep -i "no token found"
 ```
 
 ## Ressources
 
 - [🔑 Les deux secrets expliqués](./SECRETS_EXPLAINED.md) - Clarification des rôles de `OIDC_CLIENT_SECRET` vs `JWT_SECRET_KEY`
+- [📡 Streamlit + authcrunch](./STREAMLIT_AUTHCRUNCH.md) - Gestion des erreurs `/_stcore/*` "no token found"
 - [AuthCrunch - HTTP Headers](https://docs.authcrunch.com/docs/authorize/headers)
 - [AuthCrunch - Token Verification](https://docs.authcrunch.com/docs/authorize/token-verification)
 - [AuthCrunch - Identity](https://docs.authcrunch.com/docs/authorize/identity)

@@ -116,12 +116,12 @@ if metrics_text:
     
     col1, col2, col3, col4 = st.columns(4)
     
-    avg_meili_time = metrics_data.get("avg_meilisearch_time_ms", 0)
+    avg_typesense_time = metrics_data.get("avg_typesense_time_ms", 0)
     avg_wiki_time = metrics_data.get("avg_wiki_time_ms", 0)
     avg_cse_time = metrics_data.get("avg_cse_time_ms", 0)
     avg_reranking_time = metrics_data.get("avg_reranking_time_ms", 0)
 
-    col1.metric(t("api_metrics.meilisearch"), f"{avg_meili_time:.1f} ms")
+    col1.metric(t("api_metrics.typesense"), f"{avg_typesense_time:.1f} ms")
     col2.metric(t("api_metrics.mediawiki"), f"{avg_wiki_time:.1f} ms")
     col3.metric(t("api_metrics.google_cse"), f"{avg_cse_time:.1f} ms")
     col4.metric(t("api_metrics.reranking"), f"{avg_reranking_time:.2f} ms")
@@ -129,11 +129,11 @@ if metrics_text:
     # --- Timing Breakdown Visualization ---
     st.subheader("⏱️ Répartition des temps de traitement")
 
-    st.info("ℹ️ Les requêtes Meilisearch, MediaWiki et Google CSE sont exécutées **en parallèle** via `asyncio.gather()`. Le reranking est ensuite appliqué de manière séquentielle.")
+    st.info("ℹ️ Les requêtes Typesense, MediaWiki et Google CSE sont exécutées **en parallèle** via `asyncio.gather()`. Le reranking est ensuite appliqué de manière séquentielle.")
 
     # Parallel operations (executed concurrently)
     parallel_operations = {
-        "Meilisearch": avg_meili_time,
+        "Typesense": avg_typesense_time,
         "MediaWiki": avg_wiki_time,
         "Google CSE": avg_cse_time,
     }
@@ -162,7 +162,7 @@ if metrics_text:
 
             # Define colors
             colors = {
-                "Meilisearch": "#3498db",  # Blue
+                "Typesense": "#3498db",  # Blue
                 "MediaWiki": "#2ecc71",     # Green
                 "Google CSE": "#1abc9c",    # Cyan
                 "Reranking": "#e74c3c",     # Red
@@ -252,7 +252,7 @@ if metrics_text:
             st.metric(
                 "⚡ Requêtes parallèles",
                 f"{max_parallel_time:.1f} ms",
-                help="Temps le plus long parmi les requêtes parallèles (Meilisearch, Wiki, CSE)"
+                help="Temps le plus long parmi les requêtes parallèles (Typesense, Wiki, CSE)"
             )
 
         with col2:

@@ -11,7 +11,7 @@ python-dotenv
 requests
 httpx  # For async HTTP requests
 PyJWT  # For JWT token handling
-meilisearch-python-sdk>=4.10.0
+typesense>=0.21.0
 numpy==1.26.4
 prometheus-fastapi-instrumentator
 prometheus-client

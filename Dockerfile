@@ -38,7 +38,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends tini curl && \
 COPY --from=builder /opt/venv /opt/venv
 
 # Copier le code source
-COPY meilisearchcrawler/ ./meilisearchcrawler
+COPY kidsearch/ ./kidsearch
 COPY dashboard/ ./dashboard
 COPY start.py .
 COPY api.py .
@@ -67,7 +67,7 @@ ENV API_PORT=8080
 ENV API_HOST=0.0.0.0
 ENV API_WORKERS=4
 ENV API_ENABLED=true
-ENV MEILI_URL=http://meilisearch:7700
+ENV TYPESENSE_URL=http://typesense:8108
 
 # Exposer les ports
 EXPOSE 8501 8080

@@ -56,9 +56,10 @@ API_PORT=8080
 API_DISPLAY_HOST=localhost  # URL affichée dans la doc (localhost, nom de domaine, etc.)
                             # Si derrière reverse proxy: domaine sans port (ex: api.example.com)
 
-# 3. Configurer Meilisearch
-MEILI_HTTP_ADDR=http://localhost:7700
-MEILI_MASTER_KEY=votre_master_key
+# 3. Configurer Typesense
+TYPESENSE_URL=http://localhost:8108
+TYPESENSE_API_KEY=votre_api_key
+INDEX_NAME=kidsearch
 
 # 4. Configurer Google CSE (optionnel)
 GOOGLE_CSE_API_KEY=votre_clé_api
@@ -84,7 +85,7 @@ endpoints = [
     {
         "Method": "GET",
         "Endpoint": "/api/search",
-        "Description": "Effectuer une recherche unifiée (Meilisearch + CSE + Reranking).",
+        "Description": "Effectuer une recherche unifiée (Typesense + CSE + Reranking).",
     },
     {
         "Method": "GET",

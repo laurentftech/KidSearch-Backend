@@ -9,7 +9,7 @@ if __name__ == "__main__":
     sys.path.insert(0, str(project_root))
 
     uvicorn.run(
-        "meilisearchcrawler.api.server:app",  # CORRECTION: Utilisation de server.py
+        "kidsearch.api.server:app",  # CORRECTION: Utilisation de server.py
         host="127.0.0.1",
         port=8000,
         reload=True

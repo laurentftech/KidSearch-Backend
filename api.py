@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 KidSearch API Backend Launcher
-Starts the FastAPI server for unified search (Meilisearch + Google CSE + Reranking)
+Starts the FastAPI server for unified search (Typesense + Google CSE + Reranking)
 """
 
 import os
@@ -22,7 +22,7 @@ logging.basicConfig(
 )
 
 # Force log level for application loggers (uvicorn may override root logger)
-app_logger = logging.getLogger("meilisearchcrawler")
+app_logger = logging.getLogger("kidsearch")
 app_logger.setLevel(log_level)
 
 logger = logging.getLogger(__name__)
@@ -55,9 +55,9 @@ def main():
         )
         sys.exit(1)
 
-    # Check Meilisearch connection
-    meili_url = os.getenv("MEILI_URL", "http://localhost:7700")
-    logger.info(f"Meilisearch URL: {meili_url}")
+    # Check Typesense connection
+    typesense_url = os.getenv("TYPESENSE_URL", "http://localhost:8108")
+    logger.info(f"Typesense URL: {typesense_url}")
 
     # Check Google CSE configuration
     cse_api_key = os.getenv("GOOGLE_CSE_API_KEY")
@@ -68,7 +68,7 @@ def main():
        cse_id == "your_search_engine_id_here":
         logger.warning(
             "Google CSE not configured. "
-            "API will work with Meilisearch only. "
+            "API will work with Typesense only. "
             "Set GOOGLE_CSE_API_KEY and GOOGLE_CSE_ID in .env for unified search."
         )
 
@@ -99,7 +99,7 @@ def main():
     try:
         import uvicorn
         uvicorn.run(
-            "meilisearchcrawler.api.server:app",
+            "kidsearch.api.server:app",
             host=host,
             port=port,
             workers=workers,

@@ -1,9 +1,14 @@
-# KidSearch API & Meilisearch Crawler
+# KidSearch API & Typesense Crawler
+
+[![Tests](https://github.com/laurentftech/MeilisearchCrawler/actions/workflows/tests.yml/badge.svg)](https://github.com/laurentftech/MeilisearchCrawler/actions/workflows/tests.yml)
+[![Docker Build](https://github.com/laurentftech/MeilisearchCrawler/actions/workflows/docker-build.yml/badge.svg)](https://github.com/laurentftech/MeilisearchCrawler/actions/workflows/docker-build.yml)
+[![Docker Image](https://img.shields.io/badge/docker-ghcr.io-blue)](https://github.com/laurentftech/MeilisearchCrawler/pkgs/container/meilisearchcrawler)
+[![License](https://img.shields.io/github/license/laurentftech/MeilisearchCrawler)](LICENSE)
 
 This project provides a complete backend solution for a safe search engine like [KidSearch](https://github.com/laurentftech/kidsearch). It consists of two main components:
 
-1.  A **KidSearch API Server**: A FastAPI-based server that performs federated searches across multiple sources (local Meilisearch, Google, Wikipedia) and uses a local model to semantically rerank results.
-2.  A **Meilisearch Crawler**: A high-performance, asynchronous web crawler that populates the local Meilisearch instance with content from websites, JSON APIs, and MediaWiki sites.
+1.  A **KidSearch API Server**: A FastAPI-based server that performs federated searches across multiple sources (local Typesense, Google, Wikipedia) and uses a local model to semantically rerank results.
+2.  A **Typesense Crawler**: A high-performance, asynchronous web crawler that populates the local Typesense instance with content from websites, JSON APIs, and MediaWiki sites.
 
 This combination creates a powerful and flexible search backend, capable of delivering relevant and safe results.
 
@@ -11,7 +16,7 @@ This combination creates a powerful and flexible search backend, capable of deli
 
 ### KidSearch API Server
 - **FastAPI Backend**: A lightweight, high-performance API server to expose search functionalities.
-- **Federated Search**: Aggregates results from multiple sources in real-time: the local Meilisearch index, Google Custom Search (GSE), and Wikipedia/Vikidia APIs.
+- **Federated Search**: Aggregates results from multiple sources in real-time: the local Typesense index, Google Custom Search (GSE), and Wikipedia/Vikidia APIs.
 - **Optimized Hybrid Reranking**: Fetches results from all sources, computes missing embeddings on-the-fly, and then uses a local cross-encoder model to intelligently rerank the combined list based on semantic relevance. This ensures the best content is always prioritized with minimal latency.
 - **Ready for Production**: Can be easily deployed as a Docker container.
 
@@ -37,32 +42,47 @@ This combination creates a powerful and flexible search backend, capable of deli
 ## Prerequisites
 
 - Python 3.8+
-- A running Meilisearch instance (v1.0 or higher).
+- A running Typesense instance (v1.0 or higher).
 - A Google Gemini API key (if using the embeddings feature).
 
-## 1. Setting up Meilisearch
+## 1. Setting up Typesense
 
-This crawler needs a Meilisearch instance to send its data to. The easiest way to get one running is with Docker.
+This crawler needs a Typesense instance to send its data to. The easiest way is using Docker Compose (included) or running Typesense manually.
 
-1.  **Install Meilisearch**: Follow the official [Meilisearch Quick Start guide](https://www.meilisearch.com/docs/learn/getting_started/quick_start).
-2.  **Run Meilisearch with a Master Key**:
+### Option A: Using Docker Compose (Recommended)
+
+The project includes a `docker-compose.yml` that sets up everything:
+
+```bash
+docker-compose up -d
+```
+
+This will start:
+- Typesense server on port 8108
+- Embedding service (optional, for semantic search)
+- KidSearch API and Dashboard
+
+### Option B: Manual Typesense Setup
+
+1.  **Install Typesense**: Follow the official [Typesense Quick Start guide](https://typesense.org/docs/guide/install-typesense.html).
+2.  **Run Typesense with Docker**:
     ```bash
-    docker run -it --rm \
-      -p 7700:7700 \
-      -e MEILI_MASTER_KEY='a_master_key_that_is_long_and_secure' \
-      -v $(pwd)/meili_data:/meili_data \
-      ghcr.io/meilisearch/meilisearch:latest
+    docker run -d \
+      -p 8108:8108 \
+      -e TYPESENSE_API_KEY='your_secure_api_key_here' \
+      -v $(pwd)/typesense_data:/data \
+      typesense/typesense:29.0
     ```
-3.  **Get your URL and API Key**:
-    -   **URL**: `http://localhost:7700`
-    -   **API Key**: The `MEILI_MASTER_KEY` you defined.
+3.  **Connection Details**:
+    -   **URL**: `http://localhost:8108`
+    -   **API Key**: The `TYPESENSE_API_KEY` you defined above
 
 ## 2. Setting up the Crawler
 
 1.  **Clone the repository**:
     ```bash
-    git clone https://github.com/laurentftech/MeilisearchCrawler.git
-    cd MeilisearchCrawler
+    git clone https://github.com/laurentftech/TypesenseCrawler.git
+    cd TypesenseCrawler
     ```
 
 2.  **Create and activate a virtual environment**:
@@ -82,8 +102,8 @@ This crawler needs a Meilisearch instance to send its data to. The easiest way t
     cp .env.example .env
     ```
     Now, open `.env` and fill in:
-    - `MEILI_URL`: Your Meilisearch instance URL.
-    - `MEILI_KEY`: Your Meilisearch master key.
+    - `TYPESENSE_URL`: Your Typesense instance URL.
+    - `TYPESENSE_API_KEY`: Your Typesense master key.
     - `GEMINI_API_KEY`: Your Google Gemini API key (optional, but required for the `--embeddings` feature).
 
 5.  **Configure sites to crawl**:
@@ -98,6 +118,8 @@ This crawler needs a Meilisearch instance to send its data to. The easiest way t
 The project can be run in different modes: crawler, API server, or dashboard.
 
 > 📖 **Complete API documentation available here:** [API_README.md](API_README.md)
+
+**Note:** The Typesense collection is **created automatically** when you first start the crawler or API server. You can also verify and create it from the dashboard's **System Status** page.
 
 ### Crawler (Command-Line)
 
@@ -147,9 +169,10 @@ The project includes a web-based dashboard to monitor and control the crawler in
 
 -   **🏠 Overview**: A real-time summary of the current crawl.
 -   **🔧 Controls**: Start or stop the crawler, select sites, force re-crawls, and manage embeddings.
--   **🔍 Search**: A live search interface to test queries directly against your Meilisearch index.
--   **📊 Statistics**: Detailed statistics about your Meilisearch index.
+-   **🔍 Search**: A live search interface to test queries directly against your Typesense index.
+-   **📊 Statistics**: Detailed statistics about your Typesense index.
 -   **🌳 Page Tree**: An interactive visualization of your site's structure.
+-   **⚙️ System Status**: Check Typesense health, collection status, and create the collection with one click.
 -   **⚙️ Configuration**: An interactive editor for the `sites.yml` file.
 -   **🪵 Logs**: A live view of the crawler's log file.
 -   **📈 API Metrics**: A dashboard to monitor API performance and metrics.
@@ -158,7 +181,7 @@ The project includes a web-based dashboard to monitor and control the crawler in
 
 The `config/sites.yml` file allows you to define a list of sites to crawl. Each site is an object with the following properties:
 
-- `name`: (String) The name of the site, used for filtering in Meilisearch.
+- `name`: (String) The name of the site, used for filtering in Typesense.
 - `crawl`: (String) The starting URL for the crawl.
 - `type`: (String) The type of content. Can be `html`, `json`, ou `mediawiki`.
 - `max_pages`: (Integer) The maximum number of pages to crawl. Set to `0` or omit for no limit.
@@ -294,6 +317,8 @@ https://kidsearch-admin.example.com {
 - Full Caddyfile example: `docs/Caddyfile`
 - Complete guide: `docs/AUTHENTICATION_FINAL.md`
 - Deployment checklist: `docs/DEPLOYMENT_CHECKLIST.md`
+- Secrets explained: `docs/SECRETS_EXPLAINED.md`
+- Streamlit + authcrunch: `docs/STREAMLIT_AUTHCRUNCH.md`
 
 ### 🧩 OIDC, Google, GitHub & Simple Password
 

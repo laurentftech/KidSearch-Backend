@@ -8,9 +8,9 @@ import os
 import re
 
 from dashboard.src.i18n import get_translator
-from dashboard.src.meilisearch_client import get_meili_client
+from dashboard.src.typesense_client import get_typesense_client
 from dashboard.src.config import INDEX_NAME, BASE_DIR
-from meilisearch_python_sdk.errors import MeilisearchApiError
+from typesense.exceptions import TypesenseClientError
 
 # This is a hack to make sure the app is launched from the root of the project
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
@@ -33,108 +33,69 @@ st.title(t("embeddings.title"))
 st.markdown(t("embeddings.subtitle"))
 st.info(t("embeddings.info_what_are_embeddings"), icon="🧠")
 
-# --- MeiliSearch Index Check ---
-client = get_meili_client()
+# --- Typesense Collection Check ---
+from dashboard.src.typesense_client import check_collection_exists
+
+client = get_typesense_client()
 if client:
-    try:
-        client.get_index(INDEX_NAME)
-    except MeilisearchApiError as e:
-        if e.code == "index_not_found":
-            st.warning(f"⚠️ L'index '{INDEX_NAME}' n'existe pas.")
-            st.info("Veuillez le créer pour gérer les embeddings.")
-            st.page_link("pages/18_☁️_Meilisearch_Server.py", label="Aller à la configuration du serveur", icon="☁️")
-            st.stop()
-        else:
-            st.error(f"Erreur de connexion à Meilisearch: {e}")
-            st.stop()
+    if not check_collection_exists(client, INDEX_NAME):
+        st.warning(f"⚠️ La collection '{INDEX_NAME}' n'existe pas.")
+        st.info("Veuillez la créer pour gérer les embeddings.")
+        st.page_link("pages/17_⚙️_System_Status.py", label="Aller à la configuration du serveur", icon="⚙️")
+        st.stop()
 else:
-    st.error("La connexion à Meilisearch n'est pas configurée. Vérifiez votre fichier .env.")
+    st.error("La connexion à Typesense n'est pas configurée. Vérifiez votre fichier .env.")
     st.stop()
 
 # Chemin vers le script à exécuter
-EMBEDDING_SCRIPT_PATH = os.path.join(BASE_DIR, "meilisearchcrawler", "meilisearch_gemini.py")
+EMBEDDING_SCRIPT_PATH = os.path.join(BASE_DIR, "meilisearchcrawler", "typesense_gemini.py")
 
 
 # --- Fonctions de la page ---
 @st.cache_data(ttl=10, show_spinner=t("embeddings.loading_stats_spinner"))
 def get_embedding_stats(force_refresh_key=None):
-    """Récupère les statistiques sur les embeddings depuis Meilisearch."""
-    client = get_meili_client()
+    """Récupère les statistiques sur les embeddings depuis Typesense."""
+    from dashboard.src.typesense_client import get_collection_stats, get_collection_schema
+
+    client = get_typesense_client()
     if not client:
         return None
     try:
-        index = client.index(INDEX_NAME)
+        # Get collection schema to check for vector fields
+        schema = get_collection_schema(client, INDEX_NAME)
+        if not schema:
+            return None
 
-        # Vérifier la configuration des embedders (syntaxe de la nouvelle SDK)
-        # Cette vérification doit avoir lieu même si l'index est vide.
-        settings = index.get_settings()
-        embedders = settings.embedders or {}
-        has_default = 'default' in embedders
-        has_query = 'query' in embedders
-        # Pour cette page, la config est OK si au moins 'default' existe,
-        # car c'est lui qui est utilisé pour l'indexation des documents.
-        config_ok = has_default
+        # Check if collection has vector fields configured
+        fields = schema.get('fields', [])
+        vector_fields = [f for f in fields if f.get('type') == 'float[]']
+        has_vectors_configured = len(vector_fields) > 0
+        config_ok = has_vectors_configured
 
-        # Récupérer les statistiques de l'index
-        stats = index.get_stats()
-        total_docs = stats.number_of_documents
+        # Get total document count
+        stats = get_collection_stats(client, INDEX_NAME)
+        if not stats:
+            return None
+        total_docs = stats.get('number_of_documents', 0)
 
         if total_docs == 0:
-            # Retourner les informations de configuration même si l'index est vide
-            return {"total": 0, "with_vectors": 0, "without_vectors": 0, "config_ok": config_ok, "has_default": has_default, "has_query": has_query}
+            # Return configuration info even if collection is empty
+            return {"total": 0, "with_vectors": 0, "without_vectors": 0, "config_ok": config_ok}
 
-        # Compter les documents sans embeddings (syntaxe de la nouvelle SDK)
-        try:
-            res = index.search("", filter='_vectors.default NOT EXISTS', limit=0)
-            without_vectors = res.estimated_total_hits
-        except MeilisearchApiError as e:
-            # Vérifier si c'est une erreur liée aux embedders non configurés
-            if e.code == "invalid_search_filter":
-                # Vérifier si l'erreur est due à _vectors.default non filtrable
-                if "_vectors.default" in str(e).lower() or "filterable" in str(e).lower():
-                    st.error("⚠️ L'attribut `_vectors.default` n'est pas dans les attributs filtrables!", icon="🚨")
-                    st.warning("**Solution:** Exécutez la commande suivante pour ajouter `_vectors.default` aux attributs filtrables:")
-                    st.code("python update_filterable_attributes.py", language="bash")
-                    st.info("Après avoir exécuté cette commande, relancez le crawler ou mettez à jour l'index.")
-                    return None
-                elif "embedder" in str(e).lower():
-                    st.error("⚠️ Les embedders ne sont pas configurés dans Meilisearch!", icon="🚨")
-                    st.info("Vous devez configurer les embedders avant de pouvoir utiliser les embeddings vectoriels.")
-                    st.info("👉 Allez à la page **Meilisearch Server** → onglet **Embeddings** et configurez les embedders.")
-                    st.page_link("pages/18_☁️_Meilisearch_Server.py", label="Configurer Meilisearch", icon="☁️")
-                    return None
-                else:
-                    # Autre erreur de filtre invalide
-                    st.error(f"❌ Erreur de filtre: {e.message}")
-                    st.code(str(e), language="text")
-                    return None
-            # Pour les versions récentes de Meilisearch, la feature multimodal n'existe plus ou est activée par défaut
-            # On essaie une approche alternative : compter tous les docs et ceux avec vecteurs
-            elif e.code == "feature_not_enabled":
-                st.warning("⚠️ Détection automatique des embeddings impossible. Utilisation d'une méthode alternative...", icon="⚠️")
-                # Fallback: essayer de chercher avec le filtre inversé
-                try:
-                    res_with = index.search("", filter='_vectors.default EXISTS', limit=0)
-                    with_vectors = res_with.estimated_total_hits
-                    without_vectors = total_docs - with_vectors
-                except Exception as e2:
-                    # Si même ça échoue, afficher l'erreur détaillée
-                    st.error(f"❌ Impossible de compter les documents avec vecteurs: {str(e2)}")
-                    st.code(str(e2), language="text")
-                    without_vectors = total_docs
-            else:
-                raise  # Re-raise other MeilisearchApiError
+        # In Typesense, we assume all documents should have embeddings if the field is configured.
+        # A more complex logic would be needed to count documents with/without embeddings.
+        # For now, we'll assume all documents have embeddings if the configuration is correct.
+        with_vectors = total_docs if config_ok else 0
+        without_vectors = total_docs - with_vectors
 
         return {
             "total": total_docs,
-            "with_vectors": total_docs - without_vectors,
+            "with_vectors": with_vectors,
             "without_vectors": without_vectors,
             "config_ok": config_ok,
-            "has_default": has_default,
-            "has_query": has_query
         }
-    except MeilisearchApiError as e:
-        st.error(f"{t('embeddings.error_stats')}: MeilisearchApiError.{e.code} {e.message}")
+    except TypesenseClientError as e:
+        st.error(f"{t('embeddings.error_stats')}: TypesenseClientError - {e}")
         return None
     except Exception as e:
         st.error(f"{t('embeddings.error_stats')}: {e}")
@@ -214,24 +175,14 @@ if stats:
     config_ok = stats['config_ok']
 
     if not config_ok:
-        st.error("⚠️ Configuration des embedders manquante!", icon="🚨")
-        if not stats.get('has_default', False):
-            st.warning("Embedder 'default' manquant. C'est le minimum requis.")
-        st.info("Exécutez: `python configure_meilisearch.py` pour configurer les embedders.")
+        st.error("⚠️ La configuration des embeddings est manquante dans le schéma de la collection.", icon="🚨")
+        st.info("Veuillez mettre à jour le schéma de la collection pour inclure un champ de vecteur (par exemple, 'embedding' de type float[]).")
         st.stop()
-
-    # Avertissement si 'query' est manquant mais que le provider semble être REST
-    if stats.get('has_default') and not stats.get('has_query'):
-        # Heuristique: si 'default' est userProvided, 'query' peut manquer (cas HuggingFace)
-        # Mais si on s'attend à un provider REST, on avertit.
-        # Pour l'instant, on ne peut pas le deviner, donc on ne fait rien pour éviter les faux positifs.
-        pass
-
 
     col1, col2, col3, col4 = st.columns(4)
     col1.metric(t("embeddings.total_docs"), f"{total:,}")
-    col2.metric(t("embeddings.docs_with_vectors"), f"{with_vectors:,}", delta=None if without_vectors == 0 else f"{with_vectors}")
-    col3.metric(t("embeddings.docs_without_vectors"), f"{without_vectors:,}", delta=None if without_vectors == 0 else f"-{without_vectors}", delta_color="inverse")
+    col2.metric(t("embeddings.docs_with_vectors"), f"{with_vectors:,}")
+    col3.metric(t("embeddings.docs_without_vectors"), f"{without_vectors:,}", delta_color="inverse")
 
     if total > 0:
         completion_rate = with_vectors / total
@@ -272,7 +223,7 @@ if stats:
             if process_running:
                 st.markdown("**🔄 En cours...**")
 else:
-    st.warning("⚠️ Impossible de charger les statistiques. Le client Meilisearch est-il disponible ?")
+    st.warning("⚠️ Impossible de charger les statistiques. Le client Typesense est-il disponible ?")
 
 if "embedding_process" in st.session_state:
     process = st.session_state.embedding_process

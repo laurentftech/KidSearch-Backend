@@ -14,7 +14,7 @@ load_dotenv()
 #  Configuration & Page
 # =======================
 st.set_page_config(
-    page_title="MeiliSearchCrawler Dashboard",
+    page_title="KidSearch Dashboard",
     page_icon="🕸️",
     layout="wide"
 )
@@ -49,8 +49,8 @@ show_user_widget(t)
 # Import services after auth check
 from dashboard.src.state import is_crawler_running
 from dashboard.src.utils import load_cache_stats
-from dashboard.src.meilisearch_client import get_meili_client
-from meilisearchcrawler.config import INDEX_NAME
+from dashboard.src.typesense_client import get_typesense_client, get_collection_stats
+from kidsearch.config import INDEX_NAME
 
 
 # =======================
@@ -72,7 +72,7 @@ st.markdown("""
 #  SIDEBAR
 # =======================
 with st.sidebar:
-    st.image("https://raw.githubusercontent.com/meilisearch/meilisearch/main/assets/logo.svg", width=100)
+    st.image("https://typesense.org/images/logo.svg", width=150)
     st.title(t('dashboard_title'))
 
     # Sélecteur de langue avec drapeaux
@@ -135,23 +135,23 @@ with st.sidebar:
     else:
         st.metric(t('api_status'), f"🔴 {t('disabled')}")
 
-    # Métriques Meilisearch (cached for performance)
+    # Métriques Typesense (cached for performance)
     @st.cache_data(ttl=30, show_spinner=False)
-    def get_meilisearch_doc_count():
-        meili_client = get_meili_client()
-        if meili_client:
+    def get_typesense_doc_count():
+        client = get_typesense_client()
+        if client:
             try:
-                stats = meili_client.index(INDEX_NAME).get_stats()
-                return getattr(stats, 'number_of_documents', 0)
+                stats = get_collection_stats(client, INDEX_NAME)
+                return stats.get('number_of_documents', 0) if stats else None
             except Exception:
                 return None
         return None
 
-    num_docs = get_meilisearch_doc_count()
+    num_docs = get_typesense_doc_count()
     if num_docs is not None:
-        st.metric(t('meilisearch_docs'), f"{num_docs:,}")
+        st.metric(t('typesense_docs'), f"{num_docs:,}")
     else:
-        st.metric(t('meilisearch_docs'), "N/A")
+        st.metric(t('typesense_docs'), "N/A")
 
     st.markdown(t('api_pages_info'))
 

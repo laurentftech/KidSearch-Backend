@@ -1,4 +1,4 @@
-from meilisearchcrawler.crawler import main
+from kidsearch.crawler import main
 
 if __name__ == "__main__":
     main()
