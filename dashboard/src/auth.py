@@ -67,7 +67,8 @@ def _create_session(user_info, auth_method, t, token=None):
         'user_info': user_info,
         'persistent_session_id': session_id
     })
-    if token: st.session_state.oauth_token = token
+    if token:
+        st.session_state.oauth_token = token
     get_local_storage().setItem('auth_session_id', session_id, key='set_session_id')
     get_local_storage().setItem('auth_token', token, key='set_auth_token')
     st.rerun()
@@ -235,8 +236,10 @@ def check_authentication():
 
     if len(form_providers) == 1:
         provider = form_providers[0]
-        if provider == AuthProvider.SIMPLE: _simple_auth(t)
-        else: _sso_auth(provider.value, t)
+        if provider == AuthProvider.SIMPLE:
+            _simple_auth(t)
+        else:
+            _sso_auth(provider.value, t)
     else:
         _show_auth_choices(form_providers, t)
 
@@ -270,8 +273,10 @@ def _show_auth_choices(providers, t):
         if st.button(f"← {t('back_to_methods')}", key="back_button"):
             st.session_state.selected_auth_method = None
             st.rerun()
-        if selected_method == "password": _simple_auth(t)
-        else: _sso_auth(selected_method, t)
+        if selected_method == "password":
+            _simple_auth(t)
+        else:
+            _sso_auth(selected_method, t)
 
 def logout():
     """Déconnecte l'utilisateur."""
@@ -305,7 +310,8 @@ def show_user_widget(t):
         with st.sidebar:
             st.markdown("---")
             st.markdown(f"**👤 {user_info.get('name', 'User')}**")
-            if user_info.get('email'): st.caption(f"📧 {user_info['email']}")
+            if user_info.get('email'):
+                st.caption(f"📧 {user_info['email']}")
 
             method_map = {
                 "oidc": f"🔐 {t('connected_via_oidc')}",

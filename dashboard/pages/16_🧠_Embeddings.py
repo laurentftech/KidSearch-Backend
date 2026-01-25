@@ -4,7 +4,7 @@ from pathlib import Path
 import time
 
 from dashboard.src.i18n import get_translator
-from dashboard.src.typesense_client import get_typesense_client, count_documents
+from dashboard.src.typesense_client import get_typesense_client, count_documents, check_collection_exists
 from dashboard.src.config import INDEX_NAME
 from typesense.exceptions import TypesenseClientError
 
@@ -30,8 +30,6 @@ st.markdown(t("embeddings.subtitle"))
 st.info(t("embeddings.info_what_are_embeddings"), icon="🧠")
 
 # --- Typesense Collection Check ---
-from dashboard.src.typesense_client import check_collection_exists
-
 client = get_typesense_client()
 if client:
     if not check_collection_exists(client, INDEX_NAME):

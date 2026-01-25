@@ -20,14 +20,15 @@ def generate_secrets():
     jwt_secret = secrets.token_hex(32)
     print("Secret JWT généré avec succès")
     print()
-    print("   ⚠️  Le secret sera écrit dans .env.secrets")
+    print("   ⚠️  Le secret sera affiché dans la console")
     print("   ⚠️  NE PAS afficher ou logger ce secret en production")
     print()
     print("-" * 70)
     print()
 
-    # Générer un fichier .env.secrets
-    print("Génération du fichier .env.secrets...")
+    # Afficher le contenu du .env.secrets
+    print("Copiez les variables suivantes dans votre fichier .env principal:")
+    print()
 
     env_content = f"""# Secret généré le {secrets.token_urlsafe(8)}
 # NE PAS COMMITER CE FICHIER DANS GIT !
@@ -49,16 +50,7 @@ AUTH_PROXY_LOGOUT_URL=/
 API_URL=http://kidsearch-all:8080/api
 """
 
-    try:
-        with open(".env.secrets", "w") as f:
-            f.write(env_content)
-        print("   ✓ Fichier .env.secrets créé avec succès")
-        print()
-        print("   Pour l'utiliser, copiez les variables dans votre .env principal")
-    except Exception as e:
-        print(f"   ✗ Erreur lors de la création du fichier: {e}")
-        print()
-        print("   Copiez manuellement le secret ci-dessus dans votre .env")
+    print(env_content)
 
     print()
     print("=" * 70)

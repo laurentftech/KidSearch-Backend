@@ -49,7 +49,7 @@ else:
         # Filter and process lines
         filtered_lines = lines
         if filter_level != t("logs.all_levels"):
-            filtered_lines = [l for l in lines if filter_level in l]
+            filtered_lines = [line for line in lines if filter_level in line]
 
         # Take the last N lines
         log_lines_to_display = filtered_lines[-num_lines:]
@@ -67,8 +67,8 @@ else:
         st.subheader(t("logs.log_stats"))
         col1, col2, col3 = st.columns(3)
         col1.metric(t("logs.total_lines"), len(lines))
-        col2.metric(f"🔴 {t('logs.errors')}", sum(1 for l in lines if 'ERROR' in l))
-        col3.metric(f"🟡 {t('logs.warnings')}", sum(1 for l in lines if 'WARNING' in l))
+        col2.metric(f"🔴 {t('logs.errors')}", sum(1 for line in lines if 'ERROR' in line))
+        col3.metric(f"🟡 {t('logs.warnings')}", sum(1 for line in lines if 'WARNING' in line))
 
     except Exception as e:
         st.error(t("logs.error_reading_logs").format(e=e))
