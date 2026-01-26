@@ -3,7 +3,6 @@ Knowledge Panel endpoints.
 Provides Wikipedia/Vikidia article data for knowledge panels in the frontend.
 """
 
-import asyncio
 import logging
 from typing import Optional
 
