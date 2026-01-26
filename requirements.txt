@@ -23,7 +23,6 @@ trafilatura
 langdetect
 curl-cffi
 aiohttp>=3.13.3  # Security: CVE-2025-69223, CVE-2025-69228, CVE-2025-69227, CVE-2025-69229, CVE-2025-69226
-cloudscraper
 psutil
 
 # --- Dashboard ---

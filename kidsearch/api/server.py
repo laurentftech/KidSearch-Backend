@@ -16,7 +16,7 @@ from fastapi.responses import JSONResponse
 from prometheus_client import Gauge
 from prometheus_fastapi_instrumentator import Instrumentator
 
-from .routes import auth, health, metrics, search
+from .routes import auth, health, knowledge_panel, metrics, search
 from .services.crawler_status import get_crawl_status
 from .services.cse_client import CSEClient
 from .services.merger import SearchMerger
@@ -209,6 +209,7 @@ def create_app() -> FastAPI:
     )
     app.include_router(health.router, prefix="/api", tags=["Health"])
     app.include_router(search.router, prefix="/api", tags=["Search"])
+    app.include_router(knowledge_panel.router, prefix="/api", tags=["Knowledge Panel"])
     app.include_router(metrics.router, prefix="/api", tags=["Metrics"])
     app.include_router(auth.router, prefix="/api", tags=["Authentication"])
 
