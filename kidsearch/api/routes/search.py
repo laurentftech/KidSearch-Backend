@@ -163,10 +163,14 @@ async def search(
         if not (use_cse and CSE_CONFIGURED and cse_client):
             return [], False, 0.0
         s = time.time()
-        res, hit = await cse_client.search(query=q, lang=lang.value, num_results=min(limit, 10))
-        if embedding_provider and use_reranking and RERANKING_ENABLED:
-            await _embed_results(embedding_provider, res)
-        return res, hit, (time.time() - s) * 1000
+        try:
+            res, hit = await cse_client.search(query=q, lang=lang.value, num_results=min(limit, 10))
+            if embedding_provider and use_reranking and RERANKING_ENABLED:
+                await _embed_results(embedding_provider, res)
+            return res, hit, (time.time() - s) * 1000
+        except Exception as e:
+            logger.error(f"CSE search failed: {e}", exc_info=True)
+            return [], False, (time.time() - s) * 1000
 
     async def search_wiki() -> Tuple[List[SearchResult], float]:
         """Search all configured wiki instances in parallel."""

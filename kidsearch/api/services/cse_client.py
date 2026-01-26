@@ -176,14 +176,24 @@ class CSEClient:
         }
 
         # Add Referer header to pass HTTP referrer restrictions
+        # Use FRONTEND_URL or fallback to a default value
+        referer = os.environ.get("FRONTEND_URL") or os.environ.get("API_HOST", "http://localhost:8080")
         headers = {
-            "Referer": os.environ.get("FRONTEND_URL", ""),
+            "Referer": referer,
             "Accept-Encoding": "gzip, deflate",
         }
 
         session = await self._get_session()
         async with session.get(self.base_url, params=params, headers=headers) as response:
-            response.raise_for_status()
+            if response.status != 200:
+                error_text = await response.text()
+                logger.error(f"Google CSE API error {response.status}: {error_text}")
+                raise aiohttp.ClientResponseError(
+                    request_info=response.request_info,
+                    history=response.history,
+                    status=response.status,
+                    message=f"CSE API returned {response.status}: {error_text}"
+                )
             data = await response.json()
 
         # Parse results
