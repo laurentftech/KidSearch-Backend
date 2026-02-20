@@ -21,7 +21,7 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 # User-Agent for HTTP requests
-USER_AGENT = os.getenv('USER_AGENT', 'KidSearch-Crawler/2.0 (+https://github.com/laurentftech/MeilisearchCrawler)')
+USER_AGENT = os.getenv('USER_AGENT', 'KidSearch-Crawler/2.0 (+https://github.com/laurentftech/KidSearch-Backend)')
 
 
 class WikiClient:

@@ -20,7 +20,7 @@ Ce répertoire contient les workflows GitHub Actions pour le projet KidSearch.
 
 **Badge de statut:**
 ```markdown
-![Tests](https://github.com/VOTRE_USERNAME/MeilisearchCrawler/actions/workflows/tests.yml/badge.svg)
+![Tests](https://github.com/VOTRE_USERNAME/KidSearch-Backend/actions/workflows/tests.yml/badge.svg)
 ```
 
 ### 2. Docker Build and Publish (`docker-build.yml`)
@@ -47,7 +47,7 @@ Ce répertoire contient les workflows GitHub Actions pour le projet KidSearch.
 
 **Badge de statut:**
 ```markdown
-![Docker](https://github.com/VOTRE_USERNAME/MeilisearchCrawler/actions/workflows/docker-build.yml/badge.svg)
+![Docker](https://github.com/VOTRE_USERNAME/KidSearch-Backend/actions/workflows/docker-build.yml/badge.svg)
 ```
 
 ## Configuration requise

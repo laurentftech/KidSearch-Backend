@@ -86,7 +86,7 @@ except Exception as e:
 # Configuration - OPTIMISÉE DS220+
 # ---------------------------
 class Config:
-    USER_AGENT = os.getenv('USER_AGENT', 'KidSearch-Crawler/2.0 (+https://github.com/laurentftech/MeilisearchCrawler)')
+    USER_AGENT = os.getenv('USER_AGENT', 'KidSearch-Crawler/2.0 (+https://github.com/laurentftech/KidSearch-Backend)')
     TYPESENSE_URL = os.getenv("TYPESENSE_URL", "http://localhost:8108")
     TYPESENSE_API_KEY = os.getenv("TYPESENSE_API_KEY", "masterKey")
     INDEX_NAME = os.getenv("INDEX_NAME", "kidsearch")

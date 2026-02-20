@@ -1,0 +1,39 @@
+kidsearch.laurentftech.fr.eu.org {
+  tls {
+    dns cloudflare {env.CF_API_TOKEN}
+  }
+
+  # --- Handler 1: API Backend ---
+  handle /api/* {
+    reverse_proxy kidsearch-all:8080
+  }
+
+  # --- Handler 2: Proxy pour le Knowledge Panel Vikidia ---
+  @vikidia_proxy path_regexp ^/vikidia-proxy/([a-z-]+)/(.*)$
+  handle @vikidia_proxy {
+    rewrite * /{re.2}
+
+    reverse_proxy {re.1}.vikidia.org:443 {
+      transport http {
+        tls
+      }
+      header_up Host {re.1}.vikidia.org
+    }
+  }
+
+  # --- Handler 3: Fichiers Statiques (tout le reste) ---
+  handle {
+    root * /srv
+
+    encode zstd gzip
+    header {
+      -Server
+      X-Frame-Options "SAMEORIGIN"
+      X-Content-Type-Options "nosniff"
+      Referrer-Policy "strict-origin-when-cross-origin"
+      Permissions-Policy "geolocation=(), microphone=(), camera=()"
+    }
+
+    file_server
+  }
+}

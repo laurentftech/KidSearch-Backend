@@ -1,6 +1,12 @@
-.PHONY: help clean test lint format docker-build docker-up docker-down install dev
+.PHONY: help setup clean test lint format docker-build docker-up docker-down install dev
 
 help: ## Show this help message
+	@echo ''
+
+setup: ## Interactive installation setup (creates .env and starts services)
+	@bash scripts/setup.sh
+
+
 	@echo 'Usage: make [target]'
 	@echo ''
 	@echo 'Available targets:'
