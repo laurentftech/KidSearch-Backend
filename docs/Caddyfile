@@ -1,127 +1,81 @@
-# Caddyfile pour KidSearch avec authentification authcrunch
+# Caddyfile exemple pour KidSearch avec authentification AuthCrunch
 # Documentation: https://docs.authcrunch.com/
 
-# Configuration globale
 {
     order authenticate before respond
-    order authorize before basicauth
+    order authorize before reverse_proxy
 
     security {
-        # Configuration OAuth identity provider
-        oauth identity provider generic {
-            realm generic
+        # Fournisseur OIDC (adapter selon votre provider : Authelia, Authentik, Pocket ID, etc.)
+        oauth identity provider my_oidc {
+            realm my_oidc
             driver generic
             client_id {env.OIDC_CLIENT_ID}
             client_secret {env.OIDC_CLIENT_SECRET}
             scopes openid email profile
-            base_auth_url {env.OIDC_ISSUER}/authorize
             metadata_url {env.OIDC_ISSUER}/.well-known/openid-configuration
         }
 
-        # Configuration du portail d'authentification
-        authentication portal myportal {
+        # Portail d'authentification
+        authentication portal auth_portal {
             crypto default token lifetime 3600
-            crypto key sign-verify {env.OIDC_CLIENT_SECRET}
-            enable identity provider generic
-            cookie domain gandulf78.synology.me
-            ui {
-                links {
-                    "KidSearch Admin" /
-                }
-            }
-            transform user {
-                match email laurent@example.com
-                action add role authp/admin
-            }
+            crypto key sign-verify {env.JWT_SHARED_KEY}
+            enable identity provider my_oidc
+            cookie domain .example.com
+            cookie lifetime 86400
         }
 
-        # Configuration de la politique d'autorisation
-        authorization policy admin_only {
-            set auth url https://auth.gandulf78.synology.me
-            allow roles authp/admin authp/user
-            crypto key verify {env.OIDC_CLIENT_SECRET}
+        # Politique d'autorisation
+        authorization policy admin_policy {
+            set auth url https://auth.example.com
+            crypto key verify {env.JWT_SHARED_KEY}
 
-            # SOLUTION OFFICIELLE: Injecter les claims JWT dans les headers HTTP
+            # Injecter les claims JWT comme headers HTTP vers le backend
             inject headers with claims
 
-            # Whitelist d'emails autorisés
-            allow email @gandulf78.synology.me
-            allow email laurent@example.com
+            acl rule {
+                comment allow authenticated users
+                match role authp/user
+                allow stop log info
+            }
+            acl rule {
+                comment default deny
+                match any
+                deny log warn
+            }
         }
     }
 }
 
-# Portail d'authentification authcrunch
-https://auth.gandulf78.synology.me {
-    log {
-        output file /data/logs/auth-portal-access.log
+# Portail d'authentification
+https://auth.example.com {
+    tls {
+        dns cloudflare {env.CF_API_TOKEN}
     }
-
-    authenticate with myportal
-}
-
-# === KIDSEARCH DASHBOARD ===
-https://kidsearch-admin.gandulf78.synology.me {
-    # Autorisation requise pour tout le site
-    # authcrunch vérifie l'authentification et injecte automatiquement:
-    # - X-Token-User-Email
-    # - X-Token-User-Name
-    # - X-Token-Subject
-    # - X-Token-User-Roles
-    authorize with admin_only
-
-    log {
-        output file /data/logs/kidsearch-dashboard-access.log
-    }
-
-    # Matcher pour les endpoints internes Streamlit (healthcheck, assets)
-    # Ces endpoints sont techniques et ne contiennent pas de données sensibles
-    # Streamlit fait des requêtes AJAX qui peuvent ne pas toujours inclure les cookies
-    @streamlit_healthcheck {
-        path /_stcore/*
-    }
-
-    # Filtrer ces requêtes des logs pour éviter les ERROR rouges
-    # Les erreurs 401 se produisent toujours mais ne sont pas loggées
-    log_skip @streamlit_healthcheck
-
-    reverse_proxy kidsearch-all:8501 {
-        header_up Host {host}
-        header_up X-Real-IP {remote_host}
-        header_up X-Forwarded-For {remote_host}
-        header_up X-Forwarded-Proto {scheme}
-        header_up Connection {>Connection}
-        header_up Upgrade {>Upgrade}
+    route {
+        authenticate with auth_portal
     }
 }
 
-# === KIDSEARCH API ===
-https://kidsearch-api.gandulf78.synology.me {
-    # Pas d'authentification sur l'API car elle gère elle-même les JWT
-    log {
-        output file /data/logs/kidsearch-api-access.log
+# Services admin (wildcard avec sous-domaines)
+*.internal.example.com {
+    tls {
+        dns cloudflare {env.CF_API_TOKEN}
     }
 
-    reverse_proxy kidsearch-all:8080 {
-        header_up Host {host}
-        header_up X-Real-IP {remote_host}
-        header_up X-Forwarded-For {remote_host}
-        header_up X-Forwarded-Proto {scheme}
-    }
-}
-
-# === MEILISEARCH (optionnel) ===
-https://kidsearch-search.gandulf78.synology.me {
-    authorize with admin_only
-
-    log {
-        output file /data/logs/meilisearch-access.log
+    # KidSearch Admin Dashboard
+    @kidsearch-admin host kidsearch-admin.internal.example.com
+    handle @kidsearch-admin {
+        authorize with admin_policy
+        reverse_proxy http://kidsearch-all:8501 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-Proto https
+        }
     }
 
-    reverse_proxy meilisearch:7700 {
-        header_up Host {host}
-        header_up X-Real-IP {remote_host}
-        header_up X-Forwarded-For {remote_host}
-        header_up X-Forwarded-Proto {scheme}
+    # Catch-all
+    handle {
+        respond "Access denied" 403
     }
 }
