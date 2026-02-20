@@ -72,13 +72,19 @@ async def login(redirect_uri: Optional[str] = Query(None, description="Optional 
 
     config = auth_config.get_oidc_config()
     callback_uri = redirect_uri or os.getenv("OIDC_API_REDIRECT_URI", "http://localhost:8080/api/auth/callback")
+
+    authorize_url = config["authorize_url"]
+    issuer = config.get("issuer", "")
+    if not issuer or not authorize_url.startswith(issuer):
+        raise HTTPException(status_code=500, detail="OIDC configuration error: authorize_url does not match issuer")
+
     auth_params = {
         "client_id": config["client_id"],
         "redirect_uri": callback_uri,
         "response_type": "code",
         "scope": " ".join(config["scopes"]),
     }
-    auth_url = f"{config['authorize_url']}?{urlencode(auth_params)}"
+    auth_url = f"{authorize_url}?{urlencode(auth_params)}"
     return RedirectResponse(url=auth_url)
 
 

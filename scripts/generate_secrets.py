@@ -50,7 +50,11 @@ AUTH_PROXY_LOGOUT_URL=/
 API_URL=http://kidsearch-all:8080/api
 """
 
-    print(env_content)
+    output_file = ".env.secrets"
+    with open(output_file, "w") as f:
+        f.write(env_content)
+    print(f"Secrets écrits dans {output_file}")
+    print("⚠️  Ne pas commiter ce fichier dans git !")
 
     print()
     print("=" * 70)
