@@ -73,7 +73,8 @@ typesense_data/
 
 # Scripts de test temporaires
 test_*.py
-!tests/test_*.py  # Garder les vrais tests dans le dossier tests/
+!tests/test_*.py      # Garder les vrais tests dans le dossier tests/
+!tests/**/test_*.py   # Garder les vrais tests dans les sous-dossiers
 
 # Scripts utilitaires temporaires
 check_*.py
