@@ -26,7 +26,9 @@ class JWTHandler:
         self.auth_config = get_auth_config()
         self.api_config = self.auth_config.get_api_config()
 
-    def create_access_token(self, data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
+    def create_access_token(
+        self, data: Dict[str, Any], expires_delta: Optional[timedelta] = None
+    ) -> str:
         """
         Crée un token JWT.
 
@@ -42,14 +44,16 @@ class JWTHandler:
         if expires_delta:
             expire = datetime.utcnow() + expires_delta
         else:
-            expire = datetime.utcnow() + timedelta(minutes=self.api_config["jwt_expiration_minutes"])
+            expire = datetime.utcnow() + timedelta(
+                minutes=self.api_config["jwt_expiration_minutes"]
+            )
 
         to_encode.update({"exp": expire, "iat": datetime.utcnow()})
 
         encoded_jwt = jwt.encode(
             to_encode,
             self.api_config["jwt_secret"],
-            algorithm=self.api_config["jwt_algorithm"]
+            algorithm=self.api_config["jwt_algorithm"],
         )
 
         return encoded_jwt
@@ -68,7 +72,7 @@ class JWTHandler:
             payload = jwt.decode(
                 token,
                 self.api_config["jwt_secret"],
-                algorithms=[self.api_config["jwt_algorithm"]]
+                algorithms=[self.api_config["jwt_algorithm"]],
             )
             return payload
         except jwt.ExpiredSignatureError:
@@ -86,7 +90,9 @@ class OIDCClient:
         self.auth_config = get_auth_config()
         self.config = self.auth_config.get_oidc_config()
 
-    async def exchange_code_for_token(self, code: str, redirect_uri: str) -> Optional[Dict[str, Any]]:
+    async def exchange_code_for_token(
+        self, code: str, redirect_uri: str
+    ) -> Optional[Dict[str, Any]]:
         """
         Échange un code d'autorisation contre un access token.
 
@@ -112,13 +118,15 @@ class OIDCClient:
                         "client_id": self.config["client_id"],
                         "client_secret": self.config["client_secret"],
                     },
-                    headers={"Content-Type": "application/x-www-form-urlencoded"}
+                    headers={"Content-Type": "application/x-www-form-urlencoded"},
                 )
 
                 if response.status_code == 200:
                     return response.json()
                 else:
-                    logger.error(f"Token exchange failed: {response.status_code} - {response.text}")
+                    logger.error(
+                        f"Token exchange failed: {response.status_code} - {response.text}"
+                    )
                     return None
 
             except Exception as e:
@@ -143,7 +151,7 @@ class OIDCClient:
             try:
                 response = await client.get(
                     self.config["userinfo_url"],
-                    headers={"Authorization": f"Bearer {access_token}"}
+                    headers={"Authorization": f"Bearer {access_token}"},
                 )
 
                 if response.status_code == 200:
@@ -175,7 +183,9 @@ jwt_handler = JWTHandler()
 oidc_client = OIDCClient()
 
 
-async def get_current_user(credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)) -> Dict[str, Any]:
+async def get_current_user(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+) -> Dict[str, Any]:
     """
     Dépendance FastAPI pour récupérer l'utilisateur actuel depuis le token JWT.
 
@@ -214,7 +224,9 @@ async def get_current_user(credentials: Optional[HTTPAuthorizationCredentials] =
     return payload
 
 
-async def get_current_user_optional(credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)) -> Optional[Dict[str, Any]]:
+async def get_current_user_optional(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+) -> Optional[Dict[str, Any]]:
     """
     Dépendance FastAPI pour récupérer l'utilisateur actuel (optionnel).
     Ne lève pas d'exception si l'utilisateur n'est pas authentifié.

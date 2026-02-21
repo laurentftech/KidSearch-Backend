@@ -26,7 +26,7 @@ from kidsearch.cache_db import CacheDB  # noqa: E402
 check_authentication()
 
 # Initialiser le traducteur
-if 'lang' not in st.session_state:
+if "lang" not in st.session_state:
     st.session_state.lang = "fr"
 t = get_translator(st.session_state.lang)
 
@@ -38,11 +38,12 @@ st.markdown(t("statistics.subtitle"))
 
 running = is_crawler_running()
 
+
 @st.cache_data(ttl=10)
 def get_cache_stats_from_db():
     """Récupère les statistiques depuis la base de données SQLite."""
     try:
-        db_path = os.path.join(BASE_DIR, 'data', 'crawler_cache.db')
+        db_path = os.path.join(BASE_DIR, "data", "crawler_cache.db")
         if not os.path.exists(db_path):
             return None
         cache_db = CacheDB(db_path=db_path)
@@ -51,13 +52,14 @@ def get_cache_stats_from_db():
         st.error(f"Erreur de chargement des statistiques du cache DB: {e}")
         return None
 
+
 stats = get_cache_stats_from_db()
 
 if stats:
-    total_urls = stats.get('total_urls', 0)
-    sites = stats.get('sites', {})
-    oldest_crawl = stats.get('oldest_crawl')
-    newest_crawl = stats.get('newest_crawl')
+    total_urls = stats.get("total_urls", 0)
+    sites = stats.get("sites", {})
+    oldest_crawl = stats.get("oldest_crawl")
+    newest_crawl = stats.get("newest_crawl")
 
     st.markdown("### " + t("statistics.cache_overview"))
     col1, col2, col3 = st.columns(3)
@@ -67,23 +69,31 @@ if stats:
     if newest_crawl:
         newest_date = datetime.fromtimestamp(newest_crawl)
         newest_delta = (datetime.now() - newest_date).days
-        col3.metric(t("statistics.last_crawl"), f"{newest_date.strftime('%Y-%m-%d %H:%M')}", f"{newest_delta} {t('statistics.days_ago')}")
+        col3.metric(
+            t("statistics.last_crawl"),
+            f"{newest_date.strftime('%Y-%m-%d %H:%M')}",
+            f"{newest_delta} {t('statistics.days_ago')}",
+        )
     else:
         col3.metric(t("statistics.last_crawl"), t("statistics.not_available"))
 
     st.markdown("### " + t("statistics.site_distribution"))
     if sites:
         sorted_sites = sorted(sites.items(), key=lambda item: item[1], reverse=True)
-        df_sites = pd.DataFrame(sorted_sites, columns=[t('statistics.site'), t('statistics.page_count')])
-        st.dataframe(df_sites, width='stretch', hide_index=True)
+        df_sites = pd.DataFrame(
+            sorted_sites, columns=[t("statistics.site"), t("statistics.page_count")]
+        )
+        st.dataframe(df_sites, width="stretch", hide_index=True)
     else:
         st.info(t("statistics.no_sites_in_cache"))
 
     st.markdown("### " + t("statistics.crawl_history"))
     if oldest_crawl and newest_crawl:
-        oldest_date_str = datetime.fromtimestamp(oldest_crawl).strftime('%Y-%m-%d')
-        newest_date_str = datetime.fromtimestamp(newest_crawl).strftime('%Y-%m-%d')
-        st.info(f"{t('statistics.crawl_period')} **{oldest_date_str}** {t('statistics.to')} **{newest_date_str}**.")
+        oldest_date_str = datetime.fromtimestamp(oldest_crawl).strftime("%Y-%m-%d")
+        newest_date_str = datetime.fromtimestamp(newest_crawl).strftime("%Y-%m-%d")
+        st.info(
+            f"{t('statistics.crawl_period')} **{oldest_date_str}** {t('statistics.to')} **{newest_date_str}**."
+        )
     else:
         st.info(t("statistics.no_crawl_history"))
 

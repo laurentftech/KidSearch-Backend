@@ -48,8 +48,7 @@ class SafetyFilter:
 
         if not config_file.exists():
             logger.warning(
-                f"Safety filter config not found: {self.config_path}, "
-                "using defaults"
+                f"Safety filter config not found: {self.config_path}, using defaults"
             )
             self._load_defaults()
             return
@@ -60,21 +59,15 @@ class SafetyFilter:
 
             # Load blocked domains
             blocked_domains = self.config.get("blocked_domains") or []
-            self.blocked_domains = set(
-                d.lower() for d in blocked_domains if d
-            )
+            self.blocked_domains = set(d.lower() for d in blocked_domains if d)
 
             # Load allowed domains (whitelist mode)
             allowed_domains = self.config.get("allowed_domains") or []
-            self.allowed_domains = set(
-                d.lower() for d in allowed_domains if d
-            )
+            self.allowed_domains = set(d.lower() for d in allowed_domains if d)
 
             # Load blocked keywords
             blocked_keywords = self.config.get("blocked_keywords") or []
-            self.blocked_keywords = [
-                kw.lower() for kw in blocked_keywords if kw
-            ]
+            self.blocked_keywords = [kw.lower() for kw in blocked_keywords if kw]
 
             # Compile regex patterns
             patterns = self.config.get("blocked_patterns") or []
@@ -122,7 +115,7 @@ class SafetyFilter:
             else:
                 blocked_count += 1
                 # Count reasons for summary
-                reason_key = reason.split(':')[0] if reason else "Unknown"
+                reason_key = reason.split(":")[0] if reason else "Unknown"
                 blocked_reasons[reason_key] = blocked_reasons.get(reason_key, 0) + 1
 
                 logger.info(
@@ -135,8 +128,12 @@ class SafetyFilter:
                 )
 
         if blocked_count > 0:
-            reasons_summary = ", ".join([f"{reason}={count}" for reason, count in blocked_reasons.items()])
-            logger.warning(f"⚠️ Safety filter blocked {blocked_count}/{len(results)} results - Reasons: {reasons_summary}")
+            reasons_summary = ", ".join(
+                [f"{reason}={count}" for reason, count in blocked_reasons.items()]
+            )
+            logger.warning(
+                f"⚠️ Safety filter blocked {blocked_count}/{len(results)} results - Reasons: {reasons_summary}"
+            )
         else:
             logger.info(f"✅ Safety filter: All {len(results)} results passed")
 

@@ -15,6 +15,7 @@ router = APIRouter()
 
 class KnowledgePanelResponse(BaseModel):
     """Response model for knowledge panel data."""
+
     title: str
     extract: str
     thumbnail: Optional[str] = None
@@ -47,7 +48,7 @@ async def get_knowledge_panel(
     if not wiki_clients:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="No wiki sources configured"
+            detail="No wiki sources configured",
         )
 
     # Find the appropriate wiki client for the language
@@ -69,7 +70,7 @@ async def get_knowledge_panel(
         if not search_results:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="No knowledge panel found for this query"
+                detail="No knowledge panel found for this query",
             )
 
         # Use the first (most relevant) result
@@ -77,24 +78,22 @@ async def get_knowledge_panel(
 
         # Get the full page data (extract + thumbnail)
         page_data = await wiki_client.get_page_data(
-            page_title=best_result.title,
-            include_extract=True,
-            include_thumbnail=True
+            page_title=best_result.title, include_extract=True, include_thumbnail=True
         )
 
-        if not page_data or 'extract' not in page_data:
+        if not page_data or "extract" not in page_data:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Could not retrieve page data"
+                detail="Could not retrieve page data",
             )
 
         # Build response
         return KnowledgePanelResponse(
             title=best_result.title,
-            extract=page_data.get('extract', ''),
-            thumbnail=page_data.get('thumbnail'),
+            extract=page_data.get("extract", ""),
+            thumbnail=page_data.get("thumbnail"),
             url=str(best_result.url),  # Convert HttpUrl to string
-            source=wiki_client.site_name
+            source=wiki_client.site_name,
         )
 
     except HTTPException:
@@ -103,5 +102,5 @@ async def get_knowledge_panel(
         logger.error(f"Error fetching knowledge panel: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve knowledge panel data"
+            detail="Failed to retrieve knowledge panel data",
         )

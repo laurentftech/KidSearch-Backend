@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field, HttpUrl
 
 class SearchSource(str, Enum):
     """Source of search result."""
+
     TYPESENSE = "typesense"
     GOOGLE_CSE = "google_cse"
     WIKI = "wiki"
@@ -19,6 +20,7 @@ class SearchSource(str, Enum):
 
 class Language(str, Enum):
     """Supported languages."""
+
     FR = "fr"
     EN = "en"
     ALL = "all"
@@ -26,9 +28,12 @@ class Language(str, Enum):
 
 class SearchRequest(BaseModel):
     """Search request parameters."""
+
     q: str = Field(..., min_length=1, max_length=200, description="Search query")
     lang: Language = Field(default=Language.FR, description="Search language")
-    limit: int = Field(default=20, ge=1, le=100, description="Maximum results to return")
+    limit: int = Field(
+        default=20, ge=1, le=100, description="Maximum results to return"
+    )
     use_cse: bool = Field(default=True, description="Include Google CSE results")
     use_reranking: bool = Field(default=True, description="Apply semantic reranking")
 
@@ -39,13 +44,14 @@ class SearchRequest(BaseModel):
                 "lang": "fr",
                 "limit": 20,
                 "use_cse": True,
-                "use_reranking": True
+                "use_reranking": True,
             }
         }
 
 
 class ImageResult(BaseModel):
     """Image in search result."""
+
     url: HttpUrl
     alt: Optional[str] = None
     description: Optional[str] = None
@@ -53,23 +59,32 @@ class ImageResult(BaseModel):
 
 class SearchResult(BaseModel):
     """Individual search result."""
+
     id: str = Field(..., description="Unique result ID")
     title: str = Field(..., description="Result title")
     url: HttpUrl = Field(..., description="Result URL")
     excerpt: str = Field(..., description="Result excerpt/description")
     content: Optional[str] = Field(None, description="Full content (optional)")
     site: Optional[str] = Field(None, description="Site name")
-    images: List[ImageResult] = Field(default_factory=list, description="Associated images")
+    images: List[ImageResult] = Field(
+        default_factory=list, description="Associated images"
+    )
     lang: Optional[str] = Field(None, description="Content language")
     timestamp: Optional[int] = Field(None, description="Content timestamp")
     indexed_at: Optional[datetime] = Field(None, description="When indexed")
     source: SearchSource = Field(..., description="Result source")
     score: float = Field(..., ge=0.0, le=1.0, description="Relevance score (0-1)")
     original_score: Optional[float] = Field(None, description="Score before reranking")
-    vectors: Optional[List[float]] = Field(default=None, alias="_vectors", description="Embeddings vectors from search engine")
+    vectors: Optional[List[float]] = Field(
+        default=None,
+        alias="_vectors",
+        description="Embeddings vectors from search engine",
+    )
+
 
 class SearchStats(BaseModel):
     """Search statistics."""
+
     total_results: int = Field(..., description="Total results returned")
     typesense_results: int = Field(default=0, description="Results from Typesense")
     cse_results: int = Field(default=0, description="Results from Google CSE")
@@ -79,12 +94,15 @@ class SearchStats(BaseModel):
     cse_time_ms: Optional[float] = Field(None, description="CSE query time")
     wiki_time_ms: Optional[float] = Field(None, description="Wiki query time")
     reranking_time_ms: Optional[float] = Field(None, description="Reranking time")
-    reranking_applied: bool = Field(default=False, description="Whether reranking was applied")
+    reranking_applied: bool = Field(
+        default=False, description="Whether reranking was applied"
+    )
     cache_hit: bool = Field(default=False, description="Whether CSE results from cache")
 
 
 class SearchResponse(BaseModel):
     """Search response with results and metadata."""
+
     query: str = Field(..., description="Original search query")
     results: List[SearchResult] = Field(..., description="Search results")
     stats: SearchStats = Field(..., description="Search statistics")
@@ -103,7 +121,7 @@ class SearchResponse(BaseModel):
                         "images": [],
                         "lang": "fr",
                         "source": "typesense",
-                        "score": 0.95
+                        "score": 0.95,
                     }
                 ],
                 "stats": {
@@ -113,22 +131,26 @@ class SearchResponse(BaseModel):
                     "wiki_results": 2,
                     "processing_time_ms": 245.3,
                     "reranking_applied": True,
-                    "cache_hit": False
-                }
+                    "cache_hit": False,
+                },
             }
         }
 
 
 class HealthResponse(BaseModel):
     """Health check response."""
+
     status: str = Field(..., description="Service status")
     version: str = Field(..., description="API version")
-    timestamp: datetime = Field(default_factory=datetime.utcnow, description="Current time")
+    timestamp: datetime = Field(
+        default_factory=datetime.utcnow, description="Current time"
+    )
     services: Dict[str, bool] = Field(..., description="Status of dependent services")
 
 
 class FeedbackRequest(BaseModel):
     """User feedback on search result."""
+
     query: str = Field(..., description="Original search query")
     result_id: str = Field(..., description="Result ID")
     result_url: HttpUrl = Field(..., description="Result URL")
@@ -142,19 +164,21 @@ class FeedbackRequest(BaseModel):
                 "result_id": "abc123",
                 "result_url": "https://example.com/page",
                 "reason": "inappropriate",
-                "comment": "Contenu non adapté aux enfants"
+                "comment": "Contenu non adapté aux enfants",
             }
         }
 
 
 class FeedbackResponse(BaseModel):
     """Feedback submission response."""
+
     success: bool = Field(..., description="Whether feedback was recorded")
     message: str = Field(..., description="Response message")
 
 
 class APIStats(BaseModel):
     """API usage statistics for dashboard."""
+
     total_searches: int = Field(..., description="Total searches")
     searches_last_hour: int = Field(..., description="Searches in last hour")
     avg_response_time_ms: float = Field(..., description="Average response time")

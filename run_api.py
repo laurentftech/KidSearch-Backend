@@ -12,5 +12,5 @@ if __name__ == "__main__":
         "kidsearch.api.server:app",  # CORRECTION: Utilisation de server.py
         host="127.0.0.1",
         port=8000,
-        reload=True
+        reload=True,
     )

@@ -49,9 +49,7 @@ class CacheDB:
         """Récupère une entrée du cache"""
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
-            cursor = conn.execute(
-                "SELECT * FROM cache WHERE url = ?", (url,)
-            )
+            cursor = conn.execute("SELECT * FROM cache WHERE url = ?", (url,))
             row = cursor.fetchone()
             return dict(row) if row else None
 
@@ -63,31 +61,49 @@ class CacheDB:
             rows = cursor.fetchall()
             return [dict(row) for row in rows] if rows else []
 
-    def set(self, url: str, content_hash: str, doc_id: str,
-            etag: str = None, last_modified: str = None, site_name: str = None):
+    def set(
+        self,
+        url: str,
+        content_hash: str,
+        doc_id: str,
+        etag: str = None,
+        last_modified: str = None,
+        site_name: str = None,
+    ):
         """Ajoute ou met à jour une entrée"""
         import time
+
         with sqlite3.connect(self.db_path) as conn:
-            conn.execute("""
+            conn.execute(
+                """
                 INSERT OR REPLACE INTO cache 
                 (url, content_hash, doc_id, last_crawl, crawl_date, etag, last_modified, site_name, indexed_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                url, content_hash, doc_id, time.time(),
-                datetime.now().isoformat(), etag, last_modified,
-                site_name, datetime.now().isoformat()
-            ))
+            """,
+                (
+                    url,
+                    content_hash,
+                    doc_id,
+                    time.time(),
+                    datetime.now().isoformat(),
+                    etag,
+                    last_modified,
+                    site_name,
+                    datetime.now().isoformat(),
+                ),
+            )
             conn.commit()
 
     def should_skip(self, url: str, content_hash: str, cache_days: int = 7) -> bool:
         """Vérifie si une page doit être ignorée"""
         import time
+
         cached = self.get(url)
         if not cached:
             return False
 
-        if cached['content_hash'] == content_hash:
-            days_ago = (time.time() - cached['last_crawl']) / (24 * 3600)
+        if cached["content_hash"] == content_hash:
+            days_ago = (time.time() - cached["last_crawl"]) / (24 * 3600)
             return days_ago < cache_days
         return False
 
@@ -103,19 +119,15 @@ class CacheDB:
                 GROUP BY site_name
             """).fetchall()
 
-            oldest = conn.execute(
-                "SELECT MIN(last_crawl) FROM cache"
-            ).fetchone()[0]
+            oldest = conn.execute("SELECT MIN(last_crawl) FROM cache").fetchone()[0]
 
-            newest = conn.execute(
-                "SELECT MAX(last_crawl) FROM cache"
-            ).fetchone()[0]
+            newest = conn.execute("SELECT MAX(last_crawl) FROM cache").fetchone()[0]
 
             return {
-                'total_urls': total,
-                'sites': dict(sites) if sites else {},
-                'oldest_crawl': oldest,
-                'newest_crawl': newest
+                "total_urls": total,
+                "sites": dict(sites) if sites else {},
+                "oldest_crawl": oldest,
+                "newest_crawl": newest,
             }
 
     def clear_site(self, site_name: str):
@@ -135,11 +147,14 @@ class CacheDB:
     def start_session(self, site_name: str, domain: str):
         """Démarre une session de crawl"""
         with sqlite3.connect(self.db_path) as conn:
-            conn.execute("""
+            conn.execute(
+                """
                 INSERT OR REPLACE INTO crawl_sessions 
                 (site_name, started, completed, domain)
                 VALUES (?, ?, 0, ?)
-            """, (site_name, datetime.now().isoformat(), domain))
+            """,
+                (site_name, datetime.now().isoformat(), domain),
+            )
             conn.commit()
 
     def get_session(self, site_name: str) -> Optional[Dict]:
@@ -152,15 +167,15 @@ class CacheDB:
             row = cursor.fetchone()
             if not row:
                 return None
-            
+
             session_data = dict(row)
-            if session_data.get('resume_urls'):
+            if session_data.get("resume_urls"):
                 try:
                     # Les URLs sont stockées en JSON
-                    resume_urls = json.loads(session_data['resume_urls'])
-                    session_data['resume_urls'] = resume_urls
+                    resume_urls = json.loads(session_data["resume_urls"])
+                    session_data["resume_urls"] = resume_urls
                 except (json.JSONDecodeError, TypeError):
-                    session_data['resume_urls'] = None
+                    session_data["resume_urls"] = None
             return session_data
 
     def get_all_sessions(self) -> List[Dict]:
@@ -171,32 +186,36 @@ class CacheDB:
             rows = cursor.fetchall()
             if not rows:
                 return []
-            
+
             sessions = []
             for row in rows:
                 session_data = dict(row)
-                if session_data.get('resume_urls'):
+                if session_data.get("resume_urls"):
                     try:
-                        resume_urls = json.loads(session_data['resume_urls'])
-                        session_data['resume_urls'] = resume_urls
+                        resume_urls = json.loads(session_data["resume_urls"])
+                        session_data["resume_urls"] = resume_urls
                     except (json.JSONDecodeError, TypeError):
-                        session_data['resume_urls'] = None
+                        session_data["resume_urls"] = None
                 sessions.append(session_data)
             return sessions
 
-    def complete_session(self, site_name: str, completed: bool = True,
-                         resume_urls: list = None):
+    def complete_session(
+        self, site_name: str, completed: bool = True, resume_urls: list = None
+    ):
         """Termine une session de crawl"""
         with sqlite3.connect(self.db_path) as conn:
             resume_json = json.dumps(resume_urls) if resume_urls else None
-            conn.execute("""
+            conn.execute(
+                """
                 UPDATE crawl_sessions 
                 SET completed = ?, finished = ?, resume_urls = ?
                 WHERE site_name = ?
-            """, (
-                1 if completed else 0,
-                datetime.now().isoformat(),
-                resume_json,
-                site_name
-            ))
+            """,
+                (
+                    1 if completed else 0,
+                    datetime.now().isoformat(),
+                    resume_json,
+                    site_name,
+                ),
+            )
             conn.commit()

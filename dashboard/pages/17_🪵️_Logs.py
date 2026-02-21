@@ -15,10 +15,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 #  Vérification de l'accès
 # =======================
 from dashboard.src.auth import check_authentication, show_user_widget
+
 check_authentication()
 
 # Initialiser le traducteur
-if 'lang' not in st.session_state:
+if "lang" not in st.session_state:
     st.session_state.lang = "fr"
 t = get_translator(st.session_state.lang)
 
@@ -33,7 +34,10 @@ col1, col2, col3 = st.columns([2, 1, 1])
 with col1:
     num_lines = st.slider(t("logs.lines_to_show"), 10, 1000, 200)
 with col2:
-    filter_level = st.selectbox(t("logs.filter_by_level"), [t("logs.all_levels"), "ERROR", "WARNING", "INFO", "DEBUG"])
+    filter_level = st.selectbox(
+        t("logs.filter_by_level"),
+        [t("logs.all_levels"), "ERROR", "WARNING", "INFO", "DEBUG"],
+    )
 with col3:
     st.write("\n")
     if st.button(t("logs.refresh_button")):
@@ -43,7 +47,7 @@ if not os.path.exists(LOG_FILE):
     st.warning(t("logs.no_log_file"))
 else:
     try:
-        with open(LOG_FILE, "r", encoding='utf-8') as f:
+        with open(LOG_FILE, "r", encoding="utf-8") as f:
             lines = f.readlines()
 
         # Filter and process lines
@@ -61,14 +65,18 @@ else:
         log_content = log_content.replace("WARNING", "🟡 WARNING")
         log_content = log_content.replace("INFO", "🔵 INFO")
 
-        st.code(log_content, language='log', line_numbers=True)
+        st.code(log_content, language="log", line_numbers=True)
 
         # Log statistics
         st.subheader(t("logs.log_stats"))
         col1, col2, col3 = st.columns(3)
         col1.metric(t("logs.total_lines"), len(lines))
-        col2.metric(f"🔴 {t('logs.errors')}", sum(1 for line in lines if 'ERROR' in line))
-        col3.metric(f"🟡 {t('logs.warnings')}", sum(1 for line in lines if 'WARNING' in line))
+        col2.metric(
+            f"🔴 {t('logs.errors')}", sum(1 for line in lines if "ERROR" in line)
+        )
+        col3.metric(
+            f"🟡 {t('logs.warnings')}", sum(1 for line in lines if "WARNING" in line)
+        )
 
     except Exception as e:
         st.error(t("logs.error_reading_logs").format(e=e))

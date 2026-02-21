@@ -25,7 +25,7 @@ async def reset_metrics(request: Request) -> JSONResponse:
     """
     try:
         # Reset stats database
-        if hasattr(request.app.state, 'stats_db'):
+        if hasattr(request.app.state, "stats_db"):
             success = request.app.state.stats_db.reset_stats()
             if success:
                 logger.info("API metrics have been reset")
@@ -33,26 +33,20 @@ async def reset_metrics(request: Request) -> JSONResponse:
                     status_code=status.HTTP_200_OK,
                     content={
                         "status": "success",
-                        "message": "Metrics have been reset successfully"
-                    }
+                        "message": "Metrics have been reset successfully",
+                    },
                 )
             else:
                 logger.error("Failed to reset metrics")
                 return JSONResponse(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    content={
-                        "status": "error",
-                        "message": "Failed to reset metrics"
-                    }
+                    content={"status": "error", "message": "Failed to reset metrics"},
                 )
         else:
             logger.warning("Stats database not available")
             return JSONResponse(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                content={
-                    "status": "error",
-                    "message": "Stats database not available"
-                }
+                content={"status": "error", "message": "Stats database not available"},
             )
     except Exception as e:
         # Log the full error details server-side only (CWE-209: prevent information exposure)
@@ -62,6 +56,6 @@ async def reset_metrics(request: Request) -> JSONResponse:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={
                 "status": "error",
-                "message": "An internal error occurred while resetting metrics"
-            }
+                "message": "An internal error occurred while resetting metrics",
+            },
         )

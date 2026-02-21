@@ -30,7 +30,7 @@ def is_safe_redirect_url(url: Optional[str]) -> bool:
         return True
 
     # Remove backslashes that could bypass urlparse
-    url = url.replace('\\', '')
+    url = url.replace("\\", "")
 
     parsed = urlparse(url)
 
@@ -44,6 +44,7 @@ def is_safe_redirect_url(url: Optional[str]) -> bool:
 
 class TokenResponse(BaseModel):
     """Réponse contenant le JWT."""
+
     access_token: str
     token_type: str = "bearer"
     expires_in: int
@@ -51,6 +52,7 @@ class TokenResponse(BaseModel):
 
 class UserInfoResponse(BaseModel):
     """Informations utilisateur."""
+
     sub: str
     name: str
     email: str
@@ -58,25 +60,38 @@ class UserInfoResponse(BaseModel):
 
 
 @router.get("/auth/login")
-async def login(redirect_uri: Optional[str] = Query(None, description="Optional redirect URI after login")):
+async def login(
+    redirect_uri: Optional[str] = Query(
+        None, description="Optional redirect URI after login"
+    ),
+):
     """
     Initie le flux d'authentification OIDC.
     """
     auth_config = get_auth_config()
     if not auth_config.is_enabled or not auth_config.has_provider(AuthProvider.OIDC):
-        raise HTTPException(status_code=400, detail="OIDC authentication is not configured")
+        raise HTTPException(
+            status_code=400, detail="OIDC authentication is not configured"
+        )
 
     # Validate redirect_uri to prevent open redirect attacks (CWE-601)
     if redirect_uri and not is_safe_redirect_url(redirect_uri):
-        raise HTTPException(status_code=400, detail="Invalid redirect URI: external URLs not allowed")
+        raise HTTPException(
+            status_code=400, detail="Invalid redirect URI: external URLs not allowed"
+        )
 
     config = auth_config.get_oidc_config()
-    callback_uri = redirect_uri or os.getenv("OIDC_API_REDIRECT_URI", "http://localhost:8080/api/auth/callback")
+    callback_uri = redirect_uri or os.getenv(
+        "OIDC_API_REDIRECT_URI", "http://localhost:8080/api/auth/callback"
+    )
 
     authorize_url = config["authorize_url"]
     issuer = config.get("issuer", "")
     if not issuer or not authorize_url.startswith(issuer):
-        raise HTTPException(status_code=500, detail="OIDC configuration error: authorize_url does not match issuer")
+        raise HTTPException(
+            status_code=500,
+            detail="OIDC configuration error: authorize_url does not match issuer",
+        )
 
     auth_params = {
         "client_id": config["client_id"],
@@ -91,20 +106,26 @@ async def login(redirect_uri: Optional[str] = Query(None, description="Optional 
 @router.get("/auth/callback")
 async def callback(
     code: str = Query(..., description="Authorization code from OIDC provider"),
-    redirect_uri: Optional[str] = Query(None, description="Optional redirect URI")
+    redirect_uri: Optional[str] = Query(None, description="Optional redirect URI"),
 ):
     """
     Callback OAuth2 depuis le provider OIDC.
     """
     auth_config = get_auth_config()
     if not auth_config.has_provider(AuthProvider.OIDC):
-        raise HTTPException(status_code=400, detail="OIDC authentication is not configured")
+        raise HTTPException(
+            status_code=400, detail="OIDC authentication is not configured"
+        )
 
     # Validate redirect_uri to prevent open redirect attacks (CWE-601)
     if redirect_uri and not is_safe_redirect_url(redirect_uri):
-        raise HTTPException(status_code=400, detail="Invalid redirect URI: external URLs not allowed")
+        raise HTTPException(
+            status_code=400, detail="Invalid redirect URI: external URLs not allowed"
+        )
 
-    callback_uri = redirect_uri or os.getenv("OIDC_API_REDIRECT_URI", "http://localhost:8080/api/auth/callback")
+    callback_uri = redirect_uri or os.getenv(
+        "OIDC_API_REDIRECT_URI", "http://localhost:8080/api/auth/callback"
+    )
     token_data = await oidc_client.exchange_code_for_token(code, callback_uri)
     if not token_data:
         raise HTTPException(status_code=400, detail="Failed to exchange code for token")
@@ -123,7 +144,7 @@ async def callback(
     return TokenResponse(
         access_token=jwt_token,
         token_type="bearer",
-        expires_in=auth_config.get_api_config()["jwt_expiration_minutes"] * 60
+        expires_in=auth_config.get_api_config()["jwt_expiration_minutes"] * 60,
     )
 
 
@@ -143,20 +164,28 @@ async def issue_token_for_proxy_headers(request: Request):
     auth_config = get_auth_config()
     proxy_config = auth_config.get_proxy_config()
     if not proxy_config:
-        raise HTTPException(status_code=400, detail="Proxy authentication is not configured")
+        raise HTTPException(
+            status_code=400, detail="Proxy authentication is not configured"
+        )
 
     # Récupérer l'email et le nom depuis les headers authcrunch
     auth_email = request.headers.get("X-Token-User-Email")
     auth_name = request.headers.get("X-Token-User-Name")
 
     if not auth_email:
-        logger.error(f"Proxy auth failed: No email header. Headers: {dict(request.headers)}")
-        raise HTTPException(status_code=401, detail="Email header not provided by proxy")
+        logger.error(
+            f"Proxy auth failed: No email header. Headers: {dict(request.headers)}"
+        )
+        raise HTTPException(
+            status_code=401, detail="Email header not provided by proxy"
+        )
 
     # Vérifier que l'email est autorisé (si whitelist configurée)
     if not auth_config.is_email_allowed(auth_email):
         logger.warning(f"Proxy auth rejected: Email not in whitelist: {auth_email}")
-        raise HTTPException(status_code=403, detail="Access denied: Email not authorized")
+        raise HTTPException(
+            status_code=403, detail="Access denied: Email not authorized"
+        )
 
     # Générer le JWT
     jwt_data = {
@@ -172,7 +201,7 @@ async def issue_token_for_proxy_headers(request: Request):
     return TokenResponse(
         access_token=jwt_token,
         token_type="bearer",
-        expires_in=auth_config.get_api_config()["jwt_expiration_minutes"] * 60
+        expires_in=auth_config.get_api_config()["jwt_expiration_minutes"] * 60,
     )
 
 
@@ -182,12 +211,13 @@ async def get_current_user_info(request: Request):
     Récupère les informations de l'utilisateur authentifié.
     """
     from ..auth import get_current_user
+
     user = await get_current_user(request.headers.get("Authorization"))
     return UserInfoResponse(
         sub=user.get("sub", ""),
         name=user.get("name", ""),
         email=user.get("email", ""),
-        auth_method=user.get("auth_method", "unknown")
+        auth_method=user.get("auth_method", "unknown"),
     )
 
 

@@ -14,6 +14,7 @@ from ..models import SearchResult
 # Import curl_cffi for Cloudflare bypass
 try:
     from curl_cffi.requests import AsyncSession as CurlAsyncSession
+
     CURL_CFFI_AVAILABLE = True
 except ImportError:
     CURL_CFFI_AVAILABLE = False
@@ -21,7 +22,10 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 # User-Agent for HTTP requests
-USER_AGENT = os.getenv('USER_AGENT', 'KidSearch-Crawler/2.0 (+https://github.com/laurentftech/KidSearch-Backend)')
+USER_AGENT = os.getenv(
+    "USER_AGENT",
+    "KidSearch-Crawler/2.0 (+https://github.com/laurentftech/KidSearch-Backend)",
+)
 
 
 class WikiClient:
@@ -38,17 +42,17 @@ class WikiClient:
 
         # Auto-detect language from API URL if not provided
         if lang is None:
-            if 'en.wikipedia' in api_url or 'en.vikidia' in api_url:
-                self.lang = 'en'
-            elif 'fr.wikipedia' in api_url or 'fr.vikidia' in api_url:
-                self.lang = 'fr'
-            elif 'es.wikipedia' in api_url:
-                self.lang = 'es'
-            elif 'de.wikipedia' in api_url:
-                self.lang = 'de'
+            if "en.wikipedia" in api_url or "en.vikidia" in api_url:
+                self.lang = "en"
+            elif "fr.wikipedia" in api_url or "fr.vikidia" in api_url:
+                self.lang = "fr"
+            elif "es.wikipedia" in api_url:
+                self.lang = "es"
+            elif "de.wikipedia" in api_url:
+                self.lang = "de"
             else:
                 # Default to English for unknown
-                self.lang = 'en'
+                self.lang = "en"
         else:
             self.lang = lang
 
@@ -57,13 +61,13 @@ class WikiClient:
             self._session = aiohttp.ClientSession(
                 connector=aiohttp.TCPConnector(limit=20),
                 raise_for_status=False,
-                timeout=aiohttp.ClientTimeout(total=10)
+                timeout=aiohttp.ClientTimeout(total=10),
             )
         return self._session
 
     def _use_cloudflare_bypass(self) -> bool:
         """Determines if curl_cffi should be used to bypass Cloudflare."""
-        return CURL_CFFI_AVAILABLE and 'vikidia' in self.site_name.lower()
+        return CURL_CFFI_AVAILABLE and "vikidia" in self.site_name.lower()
 
     async def _fetch_with_curl_cffi(self, params: dict) -> dict:
         """Makes a request using curl_cffi to bypass Cloudflare efficiently."""
@@ -77,23 +81,23 @@ class WikiClient:
                     "User-Agent": self.user_agent,
                     "Accept": "application/json, text/javascript, */*; q=0.01",
                     "Accept-Encoding": "gzip, deflate, br",
-                    "Connection": "keep-alive"
+                    "Connection": "keep-alive",
                 }
             )
 
         try:
             accept_lang_map = {
-                'fr': 'fr-FR,fr;q=0.9,en;q=0.8',
-                'en': 'en-US,en;q=0.9',
-                'es': 'es-ES,es;q=0.9,en;q=0.8',
-                'de': 'de-DE,de;q=0.9,en;q=0.8'
+                "fr": "fr-FR,fr;q=0.9,en;q=0.8",
+                "en": "en-US,en;q=0.9",
+                "es": "es-ES,es;q=0.9,en;q=0.8",
+                "de": "de-DE,de;q=0.9,en;q=0.8",
             }
-            accept_language = accept_lang_map.get(self.lang, 'en-US,en;q=0.9')
+            accept_language = accept_lang_map.get(self.lang, "en-US,en;q=0.9")
 
             headers = {
-                'Accept-Language': accept_language,
-                'Referer': self.site_url,
-                'DNT': '1',
+                "Accept-Language": accept_language,
+                "Referer": self.site_url,
+                "DNT": "1",
             }
 
             resp = await self._curl_session.get(
@@ -101,7 +105,7 @@ class WikiClient:
                 params=params,
                 headers=headers,
                 impersonate="chrome120",
-                timeout=10
+                timeout=10,
             )
             resp.raise_for_status()
             return resp.json()
@@ -116,31 +120,32 @@ class WikiClient:
 
         # Build Accept-Language header based on wiki language
         accept_lang_map = {
-            'fr': 'fr-FR,fr;q=0.9,en;q=0.8',
-            'en': 'en-US,en;q=0.9',
-            'es': 'es-ES,es;q=0.9,en;q=0.8',
-            'de': 'de-DE,de;q=0.9,en;q=0.8'
+            "fr": "fr-FR,fr;q=0.9,en;q=0.8",
+            "en": "en-US,en;q=0.9",
+            "es": "es-ES,es;q=0.9,en;q=0.8",
+            "de": "de-DE,de;q=0.9,en;q=0.8",
         }
-        accept_language = accept_lang_map.get(self.lang, 'en-US,en;q=0.9')
+        accept_language = accept_lang_map.get(self.lang, "en-US,en;q=0.9")
 
         headers = {
-            'User-Agent': self.user_agent,
-            'Accept': 'application/json, text/javascript, */*; q=0.01',
-            'Accept-Language': accept_language,
-            'Accept-Encoding': 'gzip, deflate, br',
-            'Referer': self.site_url,
-            'DNT': '1',
-            'Connection': 'keep-alive'
+            "User-Agent": self.user_agent,
+            "Accept": "application/json, text/javascript, */*; q=0.01",
+            "Accept-Language": accept_language,
+            "Accept-Encoding": "gzip, deflate, br",
+            "Referer": self.site_url,
+            "DNT": "1",
+            "Connection": "keep-alive",
         }
 
         try:
-            async with session.get(self.api_url, params=params, headers=headers) as response:
+            async with session.get(
+                self.api_url, params=params, headers=headers
+            ) as response:
                 response.raise_for_status()
                 return await response.json()
         except Exception as e:
             logger.error(f"HTTP error while searching wiki with aiohttp: {e}")
             return {}
-
 
     async def search(self, query: str, lang: str, limit: int = 5) -> List[SearchResult]:
         """
@@ -161,7 +166,7 @@ class WikiClient:
             "srsearch": query,
             "srlimit": limit,
             "srprop": "snippet|titlesnippet",
-            "origin": "*"  # Required for CORS
+            "origin": "*",  # Required for CORS
         }
 
         use_cf_bypass = self._use_cloudflare_bypass()
@@ -171,18 +176,20 @@ class WikiClient:
             data = await self._fetch_with_curl_cffi(params)
 
             # Fallback to aiohttp if curl_cffi failed
-            if not data or 'query' not in data:
-                logger.info(f"curl_cffi failed for {self.site_name}, falling back to aiohttp")
+            if not data or "query" not in data:
+                logger.info(
+                    f"curl_cffi failed for {self.site_name}, falling back to aiohttp"
+                )
                 data = await self._fetch_with_aiohttp(params)
         else:
             logger.debug(f"Using aiohttp to search wiki: {self.site_name}")
             data = await self._fetch_with_aiohttp(params)
 
-        if not data or 'query' not in data or 'search' not in data['query']:
+        if not data or "query" not in data or "search" not in data["query"]:
             return []
 
         results = []
-        for item in data['query']['search']:
+        for item in data["query"]["search"]:
             page_id = item.get("pageid")
             title = item.get("title")
             snippet_html = item.get("snippet", "")
@@ -214,7 +221,7 @@ class WikiClient:
         include_extract: bool = True,
         include_thumbnail: bool = True,
         extract_sentences: int = 3,
-        thumbnail_size: int = 300
+        thumbnail_size: int = 300,
     ) -> dict:
         """
         Get detailed page data for a specific title.
@@ -240,21 +247,20 @@ class WikiClient:
             "format": "json",
             "prop": "|".join(props),
             "titles": page_title,
-            "origin": "*"
+            "origin": "*",
         }
 
         if include_extract:
-            params.update({
-                "exintro": "1",  # Only intro section
-                "explaintext": "1",  # Plain text, no HTML
-                "exsentences": str(extract_sentences)
-            })
+            params.update(
+                {
+                    "exintro": "1",  # Only intro section
+                    "explaintext": "1",  # Plain text, no HTML
+                    "exsentences": str(extract_sentences),
+                }
+            )
 
         if include_thumbnail:
-            params.update({
-                "piprop": "thumbnail",
-                "pithumbsize": str(thumbnail_size)
-            })
+            params.update({"piprop": "thumbnail", "pithumbsize": str(thumbnail_size)})
 
         # Use same bypass logic as search
         use_cf_bypass = self._use_cloudflare_bypass()
@@ -262,23 +268,23 @@ class WikiClient:
             # Use curl_cffi for Cloudflare bypass
             data = await self._fetch_with_curl_cffi(params)
             # Fallback to aiohttp
-            if not data or 'query' not in data:
+            if not data or "query" not in data:
                 data = await self._fetch_with_aiohttp(params)
         else:
             data = await self._fetch_with_aiohttp(params)
 
-        if not data or 'query' not in data or 'pages' not in data['query']:
+        if not data or "query" not in data or "pages" not in data["query"]:
             return {}
 
         # Get first (and only) page from results
-        pages = data['query']['pages']
+        pages = data["query"]["pages"]
         page = next(iter(pages.values()))
 
         result = {}
-        if include_extract and 'extract' in page:
-            result['extract'] = page['extract']
-        if include_thumbnail and 'thumbnail' in page:
-            result['thumbnail'] = page['thumbnail'].get('source')
+        if include_extract and "extract" in page:
+            result["extract"] = page["extract"]
+        if include_thumbnail and "thumbnail" in page:
+            result["thumbnail"] = page["thumbnail"].get("source")
 
         return result
 

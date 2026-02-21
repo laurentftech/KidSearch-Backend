@@ -5,6 +5,7 @@ from typesense.exceptions import TypesenseClientError
 from urllib.parse import urlparse
 from .config import TYPESENSE_URL, TYPESENSE_API_KEY
 
+
 def get_typesense_client():
     """Establishes and caches a connection to the Typesense client."""
     if not TYPESENSE_URL or not TYPESENSE_API_KEY:
@@ -14,18 +15,14 @@ def get_typesense_client():
     try:
         # Parse URL using urllib for safety
         parsed = urlparse(TYPESENSE_URL)
-        protocol = parsed.scheme or 'http'
-        host = parsed.hostname or 'localhost'
-        port = parsed.port or (443 if protocol == 'https' else 8108)
+        protocol = parsed.scheme or "http"
+        host = parsed.hostname or "localhost"
+        port = parsed.port or (443 if protocol == "https" else 8108)
 
         config = {
-            'nodes': [{
-                'host': host,
-                'port': str(port),
-                'protocol': protocol
-            }],
-            'api_key': str(TYPESENSE_API_KEY),
-            'connection_timeout_seconds': 10
+            "nodes": [{"host": host, "port": str(port), "protocol": protocol}],
+            "api_key": str(TYPESENSE_API_KEY),
+            "connection_timeout_seconds": 10,
         }
 
         client = typesense.Client(config)
@@ -36,11 +33,15 @@ def get_typesense_client():
         return client
 
     except TypesenseClientError as e:
-        st.error(f"Error connecting to Typesense: {e}. Please check if the service is running.")
+        st.error(
+            f"Error connecting to Typesense: {e}. Please check if the service is running."
+        )
         return None
     except Exception as e:
         st.error(f"An unexpected error occurred: {e}")
-        st.write(f"Debug - Config used: {config if 'config' in locals() else 'Not created'}")
+        st.write(
+            f"Debug - Config used: {config if 'config' in locals() else 'Not created'}"
+        )
         st.write(f"Debug - Exception type: {type(e)}")
         st.code(traceback.format_exc())
         return None
@@ -62,8 +63,8 @@ def get_collection_stats(client, collection_name):
     try:
         collection = client.collections[collection_name].retrieve()
         return {
-            'number_of_documents': collection.get('num_documents', 0),
-            'name': collection.get('name', collection_name)
+            "number_of_documents": collection.get("num_documents", 0),
+            "name": collection.get("name", collection_name),
         }
     except Exception as e:
         st.error(f"Error getting collection stats: {e}")
@@ -77,10 +78,10 @@ def count_documents(client, collection_name, filter_by=""):
             "q": "*",
             "query_by": "title",  # A mandatory field, adjust if needed
             "per_page": 0,
-            "filter_by": filter_by
+            "filter_by": filter_by,
         }
         result = client.collections[collection_name].documents.search(search_params)
-        return result.get('found', 0)
+        return result.get("found", 0)
     except TypesenseClientError as e:
         # Handle cases where the collection or field might not exist yet
         st.warning(f"Could not count documents: {e}")
@@ -115,12 +116,12 @@ def get_documents(client, collection_name, **params):
         collection = client.collections[collection_name]
         # Typesense uses export for bulk document retrieval
         # But for compatibility with the page, we'll use search with high limit
-        if 'limit' not in params:
-            params['limit'] = 250
-        params['q'] = params.get('q', '*')  # Wildcard search to get all documents
+        if "limit" not in params:
+            params["limit"] = 250
+        params["q"] = params.get("q", "*")  # Wildcard search to get all documents
 
         result = collection.documents.search(params)
-        return result.get('hits', [])
+        return result.get("hits", [])
     except Exception as e:
         st.error(f"Error getting documents: {e}")
         return []

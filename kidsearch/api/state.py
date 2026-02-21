@@ -12,6 +12,7 @@ from ..embeddings import EmbeddingProvider
 
 class AppState:
     """A class to hold the application state with type hints for static analysis."""
+
     typesense_client: Optional[TypesenseClient] = None
     wiki_clients: List[WikiClient] = []  # Support multiple wiki instances
     safety_filter: Optional[SafetyFilter] = None

@@ -14,6 +14,7 @@ PID_FILE = os.path.join(DATA_DIR, "crawler.pid")
 CRAWLER_SCRIPT = os.path.join(BASE_DIR, "crawler.py")
 SITES_CONFIG_FILE = os.path.join(CONFIG_DIR, "sites.yml")
 HISTORY_FILE = os.path.join(DATA_DIR, "crawl_history.json")
+SCHEDULER_FILE = os.path.join(DATA_DIR, "scheduler.json")
 
 # Load environment variables from .env file in the project root
 load_dotenv(os.path.join(BASE_DIR, ".env"))

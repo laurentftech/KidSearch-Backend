@@ -26,14 +26,12 @@ class SessionManager:
         self._sessions: Dict[str, Dict] = {}
         self._lock = Lock()
         self.expiration_seconds = expiration_minutes * 60
-        logger.info(f"SessionManager initialized with {expiration_minutes} minutes expiration")
+        logger.info(
+            f"SessionManager initialized with {expiration_minutes} minutes expiration"
+        )
 
     def create_session(
-        self,
-        email: str,
-        user_info: Dict,
-        auth_method: str,
-        token: Optional[str] = None
+        self, email: str, user_info: Dict, auth_method: str, token: Optional[str] = None
     ) -> str:
         """
         Crée une nouvelle session utilisateur.
@@ -51,15 +49,17 @@ class SessionManager:
 
         with self._lock:
             self._sessions[session_id] = {
-                'email': email,
-                'user_info': user_info,
-                'auth_method': auth_method,
-                'token': token,
-                'created_at': time.time(),
-                'expires_at': time.time() + self.expiration_seconds
+                "email": email,
+                "user_info": user_info,
+                "auth_method": auth_method,
+                "token": token,
+                "created_at": time.time(),
+                "expires_at": time.time() + self.expiration_seconds,
             }
 
-        logger.info(f"Session created for {email} (method: {auth_method}, id: {session_id[:8]}...)")
+        logger.info(
+            f"Session created for {email} (method: {auth_method}, id: {session_id[:8]}...)"
+        )
         return session_id
 
     def get_session(self, session_id: str) -> Optional[Dict]:
@@ -80,12 +80,16 @@ class SessionManager:
                 return None
 
             # Vérifier l'expiration
-            if time.time() > session['expires_at']:
-                logger.info(f"Session expired for {session.get('email')} (id: {session_id[:8]}...)")
+            if time.time() > session["expires_at"]:
+                logger.info(
+                    f"Session expired for {session.get('email')} (id: {session_id[:8]}...)"
+                )
                 del self._sessions[session_id]
                 return None
 
-            logger.debug(f"Session retrieved for {session.get('email')} (id: {session_id[:8]}...)")
+            logger.debug(
+                f"Session retrieved for {session.get('email')} (id: {session_id[:8]}...)"
+            )
             return session
 
     def delete_session(self, session_id: str) -> bool:
@@ -102,7 +106,9 @@ class SessionManager:
             session = self._sessions.pop(session_id, None)
 
         if session:
-            logger.info(f"Session deleted for {session.get('email')} (id: {session_id[:8]}...)")
+            logger.info(
+                f"Session deleted for {session.get('email')} (id: {session_id[:8]}...)"
+            )
             return True
 
         logger.debug(f"Session not found for deletion: {session_id[:8]}...")
@@ -115,8 +121,9 @@ class SessionManager:
 
         with self._lock:
             expired_ids = [
-                sid for sid, session in self._sessions.items()
-                if now > session['expires_at']
+                sid
+                for sid, session in self._sessions.items()
+                if now > session["expires_at"]
             ]
 
             for sid in expired_ids:

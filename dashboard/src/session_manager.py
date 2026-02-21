@@ -16,7 +16,13 @@ class SessionManager:
         """Initialise le gestionnaire de sessions."""
         self._sessions: Dict[str, Dict[str, Any]] = {}
 
-    def create_session(self, email: str, user_info: Dict[str, Any], auth_method: str, token: Optional[Dict] = None) -> str:
+    def create_session(
+        self,
+        email: str,
+        user_info: Dict[str, Any],
+        auth_method: str,
+        token: Optional[Dict] = None,
+    ) -> str:
         """
         Crée une nouvelle session d'authentification.
 
@@ -84,7 +90,8 @@ class SessionManager:
         """Nettoie les sessions expirées."""
         now = datetime.now()
         expired = [
-            sid for sid, session in self._sessions.items()
+            sid
+            for sid, session in self._sessions.items()
             if now - session["created_at"] > timedelta(hours=24)
         ]
         for sid in expired:

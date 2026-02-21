@@ -27,7 +27,7 @@ from dashboard.src.utils import (
 check_authentication()
 
 # Initialiser le traducteur
-if 'lang' not in st.session_state:
+if "lang" not in st.session_state:
     st.session_state.lang = "fr"
 t = get_translator(st.session_state.lang)
 
@@ -43,10 +43,16 @@ if client:
     if not check_collection_exists(client, INDEX_NAME):
         st.warning(f"⚠️ La collection '{INDEX_NAME}' n'existe pas.")
         st.info("Veuillez la créer pour visualiser l'aperçu.")
-        st.page_link("pages/18_⚙️_System_Status.py", label="Aller à la configuration du serveur", icon="⚙️")
+        st.page_link(
+            "pages/18_⚙️_System_Status.py",
+            label="Aller à la configuration du serveur",
+            icon="⚙️",
+        )
         st.stop()
 else:
-    st.error("La connexion à Typesense n'est pas configurée. Vérifiez votre fichier .env.")
+    st.error(
+        "La connexion à Typesense n'est pas configurée. Vérifiez votre fichier .env."
+    )
     st.stop()
 
 
@@ -66,66 +72,76 @@ if status:
     with col3:
         st.metric(t("overview.errors"), status.get("errors", 0), delta_color="inverse")
     with col4:
-        duration = status.get('last_crawl_duration_sec', 0)
+        duration = status.get("last_crawl_duration_sec", 0)
         st.metric(t("overview.last_duration"), f"{duration:.2f}s")
 
-    if status.get('total_sites', 0) > 0:
+    if status.get("total_sites", 0) > 0:
         progress = status.get("sites_crawled", 0) / status["total_sites"]
         st.progress(progress, text=f"{t('overview.progress')}: {progress * 100:.1f}%")
 
-    active_site = status.get('active_site')
-    if active_site and running:
-        st.info(f"🔄 {t('overview.crawling_site')} `{active_site}`")
+    active_site = status.get("active_site")
+    if running:
+        with st.status(t("overview.status_running"), state="running", expanded=True):
+            if active_site:
+                st.write(f"🔄 {t('overview.crawling_site')} `{active_site}`")
+            pages = status.get("pages_indexed", 0)
+            errors_count = status.get("errors", 0)
+            st.write(f"📄 {pages:,} pages indexées · ❌ {errors_count} erreur(s)")
 
     history = load_crawl_history()
     if len(history) > 1:
         st.subheader(t("overview.crawl_evolution"))
         df_history = pd.DataFrame(history)
-        df_history['timestamp'] = pd.to_datetime(df_history['timestamp'])
+        df_history["timestamp"] = pd.to_datetime(df_history["timestamp"])
 
         fig = go.Figure()
-        fig.add_trace(go.Scatter(
-            x=df_history['timestamp'],
-            y=df_history['pages_indexed'],
-            mode='lines+markers',
-            name=t('overview.indexed_pages'),
-            line=dict(color='#667eea', width=3)
-        ))
-        fig.update_layout(
-            title=t('overview.chart_indexed_pages_evolution'),
-            xaxis_title=t('overview.chart_date'),
-            yaxis_title=t('overview.chart_pages'),
-            hovermode='x unified',
-            height=300
+        fig.add_trace(
+            go.Scatter(
+                x=df_history["timestamp"],
+                y=df_history["pages_indexed"],
+                mode="lines+markers",
+                name=t("overview.indexed_pages"),
+                line=dict(color="#667eea", width=3),
+            )
         )
-        st.plotly_chart(fig, width='stretch')
+        fig.update_layout(
+            title=t("overview.chart_indexed_pages_evolution"),
+            xaxis_title=t("overview.chart_date"),
+            yaxis_title=t("overview.chart_pages"),
+            hovermode="x unified",
+            height=300,
+        )
+        st.plotly_chart(fig, width="stretch")
 
     if "stats" in status and status["stats"]:
         st.subheader(t("overview.site_performance"))
         df = pd.DataFrame(status["stats"])
         if not df.empty:
             fig = px.bar(
-                df, x="site", y="pages", color="status",
-                title=t('overview.chart_indexed_pages_by_site'),
+                df,
+                x="site",
+                y="pages",
+                color="status",
+                title=t("overview.chart_indexed_pages_by_site"),
                 text="pages",
                 color_discrete_map={
-                    'completed': '#10b981',
-                    'in_progress': '#3b82f6',
-                    'error': '#f59e0b',
-                    'success': '#10b981'
-                }
+                    "completed": "#10b981",
+                    "in_progress": "#3b82f6",
+                    "error": "#f59e0b",
+                    "success": "#10b981",
+                },
             )
-            fig.update_traces(textposition='outside')
+            fig.update_traces(textposition="outside")
             fig.update_layout(
-                xaxis_title=t('overview.chart_site'),
-                yaxis_title=t('overview.chart_page_count'),
+                xaxis_title=t("overview.chart_site"),
+                yaxis_title=t("overview.chart_page_count"),
                 showlegend=True,
-                legend_title_text=t('overview.chart_status')
+                legend_title_text=t("overview.chart_status"),
             )
-            st.plotly_chart(fig, width='stretch')
+            st.plotly_chart(fig, width="stretch")
 
             with st.expander(t("overview.show_details_table")):
-                st.dataframe(df, width='stretch')
+                st.dataframe(df, width="stretch")
 else:
     st.warning(t("overview.no_status_warning"))
     if st.button(t("overview.launch_first_crawl"), type="primary"):
@@ -136,13 +152,19 @@ if running:
     if status:
         save_crawl_history(status)
 
-    if 'pause_refresh' not in st.session_state:
+    if "pause_refresh" not in st.session_state:
         st.session_state.pause_refresh = False
 
     col1, col2 = st.columns([3, 1])
     with col1:
-        refresh_rate = st.slider(t("overview.auto_refresh_label"), 10, 120, 30, key="refresh_slider",
-                                 disabled=st.session_state.pause_refresh)
+        refresh_rate = st.slider(
+            t("overview.auto_refresh_label"),
+            10,
+            120,
+            30,
+            key="refresh_slider",
+            disabled=st.session_state.pause_refresh,
+        )
     with col2:
         st.write("")
         st.write("")

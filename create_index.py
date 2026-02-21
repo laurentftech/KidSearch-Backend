@@ -15,7 +15,7 @@ INDEX_NAME = os.getenv("INDEX_NAME", "kidsearch")
 EMBEDDING_PROVIDER = os.getenv("EMBEDDING_PROVIDER", "none").lower()
 EMBEDDING_DIMENSIONS = int(os.getenv("EMBEDDING_DIMENSIONS", "768"))
 
-print(f"Configuration:")
+print("Configuration:")
 print(f"  URL: {TYPESENSE_URL}")
 print(f"  Collection: {INDEX_NAME}")
 print(f"  Embeddings: {EMBEDDING_PROVIDER}")
@@ -23,51 +23,55 @@ if EMBEDDING_PROVIDER in ["gemini", "huggingface", "sentence_transformer"]:
     print(f"  Dimensions: {EMBEDDING_DIMENSIONS}")
 
 # Parse URL
-url_parts = TYPESENSE_URL.replace('http://', '').replace('https://', '').split(':')
+url_parts = TYPESENSE_URL.replace("http://", "").replace("https://", "").split(":")
 host = url_parts[0]
 port = int(url_parts[1]) if len(url_parts) > 1 else 8108
-protocol = 'https' if 'https://' in TYPESENSE_URL else 'http'
+protocol = "https" if "https://" in TYPESENSE_URL else "http"
 
 # Create client
 print(f"\nConnexion à Typesense ({host}:{port})...")
-client = typesense.Client({
-    'nodes': [{
-        'host': host,
-        'port': str(port),
-        'protocol': protocol
-    }],
-    'api_key': TYPESENSE_API_KEY,
-    'connection_timeout_seconds': 10
-})
+client = typesense.Client(
+    {
+        "nodes": [{"host": host, "port": str(port), "protocol": protocol}],
+        "api_key": TYPESENSE_API_KEY,
+        "connection_timeout_seconds": 10,
+    }
+)
 
 # Define schema
 schema = {
-    'name': INDEX_NAME,
-    'enable_nested_fields': True,
-    'fields': [
-        {'name': 'id', 'type': 'string'},
-        {'name': 'site', 'type': 'string', 'facet': True},
-        {'name': 'url', 'type': 'string'},
-        {'name': 'title', 'type': 'string'},
-        {'name': 'excerpt', 'type': 'string'},
-        {'name': 'content', 'type': 'string'},
-        {'name': 'images', 'type': 'object[]'},
-        {'name': 'lang', 'type': 'string', 'facet': True},
-        {'name': 'timestamp', 'type': 'int64'},
-        {'name': 'indexed_at', 'type': 'string'},
-        {'name': 'last_crawled_at', 'type': 'string'},
-        {'name': 'content_hash', 'type': 'string'},
-    ]
+    "name": INDEX_NAME,
+    "enable_nested_fields": True,
+    "fields": [
+        {"name": "id", "type": "string"},
+        {"name": "site", "type": "string", "facet": True},
+        {"name": "url", "type": "string"},
+        {"name": "title", "type": "string"},
+        {"name": "excerpt", "type": "string"},
+        {"name": "content", "type": "string"},
+        {"name": "images", "type": "object[]"},
+        {"name": "lang", "type": "string", "facet": True},
+        {"name": "timestamp", "type": "int64"},
+        {"name": "indexed_at", "type": "string"},
+        {"name": "last_crawled_at", "type": "string"},
+        {"name": "content_hash", "type": "string"},
+    ],
 }
 
 # Add vector fields if embeddings enabled
 if EMBEDDING_PROVIDER in ["gemini", "huggingface", "sentence_transformer"]:
-    schema['fields'].extend([
-        {'name': 'embedding_vec', 'type': 'float[]', 'num_dim': EMBEDDING_DIMENSIONS},
-        {'name': 'embedding_provider', 'type': 'string', 'optional': True},
-        {'name': 'embedding_model', 'type': 'string', 'optional': True},
-        {'name': 'embedding_dimensions', 'type': 'int32', 'optional': True},
-    ])
+    schema["fields"].extend(
+        [
+            {
+                "name": "embedding_vec",
+                "type": "float[]",
+                "num_dim": EMBEDDING_DIMENSIONS,
+            },
+            {"name": "embedding_provider", "type": "string", "optional": True},
+            {"name": "embedding_model", "type": "string", "optional": True},
+            {"name": "embedding_dimensions", "type": "int32", "optional": True},
+        ]
+    )
     print(f"✨ Support des embeddings activé ({EMBEDDING_DIMENSIONS} dimensions)")
 
 try:
@@ -91,7 +95,7 @@ try:
     if EMBEDDING_PROVIDER in ["gemini", "huggingface", "sentence_transformer"]:
         print(f"   Vector search: Activé ({EMBEDDING_DIMENSIONS}D)")
     else:
-        print(f"   Vector search: Désactivé (recherche par mots-clés uniquement)")
+        print("   Vector search: Désactivé (recherche par mots-clés uniquement)")
 
 except Exception as e:
     print(f"\n❌ Erreur: {e}")

@@ -39,7 +39,7 @@ jobs:
 
       - name: Run linter (ruff)
         run: |
-          ruff check kidsearch/ dashboard/ --output-format=github
+          ruff check . --output-format=github
 
       - name: Run type checker (mypy)
         run: |
@@ -132,3 +132,50 @@ jobs:
           subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           subject-digest: ${{ steps.build-and-push.outputs.digest }}
           push-to-registry: true
+
+      - name: Scan image for vulnerabilities (Trivy)
+        if: github.event_name != 'pull_request'
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          format: sarif
+          output: trivy-results.sarif
+          severity: CRITICAL,HIGH
+          exit-code: "0"
+
+      - name: Upload Trivy results to Security tab
+        if: github.event_name != 'pull_request'
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif
+        continue-on-error: true
+
+      - name: Notify ntfy
+        if: always()
+        env:
+          NTFY_URL: ${{ secrets.NTFY_URL }}
+          NTFY_TOKEN: ${{ secrets.NTFY_TOKEN }}
+          JOB_STATUS: ${{ job.status }}
+          REF_NAME: ${{ github.ref_name }}
+          SHA: ${{ github.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -z "$NTFY_URL" ]; then exit 0; fi
+          SHORT_SHA=$(echo "$SHA" | cut -c1-7)
+          if [ "$JOB_STATUS" = "success" ]; then
+            TITLE="✅ KidSearch build OK"
+            PRIORITY="default"
+            TAGS="white_check_mark"
+          else
+            TITLE="❌ KidSearch build échoué"
+            PRIORITY="high"
+            TAGS="rotating_light"
+          fi
+          curl -s \
+            -H "Authorization: Bearer $NTFY_TOKEN" \
+            -H "Title: $TITLE" \
+            -H "Priority: $PRIORITY" \
+            -H "Tags: $TAGS" \
+            -H "Click: $RUN_URL" \
+            -d "Branche: $REF_NAME | $SHORT_SHA" \
+            "$NTFY_URL"

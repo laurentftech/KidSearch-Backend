@@ -101,7 +101,7 @@ class CSEClient:
             self._session = aiohttp.ClientSession(
                 connector=aiohttp.TCPConnector(limit=20),
                 raise_for_status=False,
-                timeout=aiohttp.ClientTimeout(total=10)
+                timeout=aiohttp.ClientTimeout(total=10),
             )
         return self._session
 
@@ -141,7 +141,9 @@ class CSEClient:
             # Increment quota
             self._increment_quota()
 
-            logger.info(f"CSE API called for query: '{query}', got {len(results)} results")
+            logger.info(
+                f"CSE API called for query: '{query}', got {len(results)} results"
+            )
 
             return results, False
 
@@ -177,14 +179,18 @@ class CSEClient:
 
         # Add Referer header to pass HTTP referrer restrictions
         # Use FRONTEND_URL or fallback to a default value
-        referer = os.environ.get("FRONTEND_URL") or os.environ.get("API_HOST", "http://localhost:8080")
+        referer = os.environ.get("FRONTEND_URL") or os.environ.get(
+            "API_HOST", "http://localhost:8080"
+        )
         headers = {
             "Referer": referer,
             "Accept-Encoding": "gzip, deflate",
         }
 
         session = await self._get_session()
-        async with session.get(self.base_url, params=params, headers=headers) as response:
+        async with session.get(
+            self.base_url, params=params, headers=headers
+        ) as response:
             if response.status != 200:
                 error_text = await response.text()
                 logger.error(f"Google CSE API error {response.status}: {error_text}")
@@ -192,7 +198,7 @@ class CSEClient:
                     request_info=response.request_info,
                     history=response.history,
                     status=response.status,
-                    message=f"CSE API returned {response.status}: {error_text}"
+                    message=f"CSE API returned {response.status}: {error_text}",
                 )
             data = await response.json()
 
@@ -219,7 +225,9 @@ class CSEClient:
                                 )
                             )
                     except ValidationError:
-                        logger.warning(f"Skipping invalid image URL from CSE: {img.get('src')}")
+                        logger.warning(
+                            f"Skipping invalid image URL from CSE: {img.get('src')}"
+                        )
                         continue
 
             result = SearchResult(
@@ -300,9 +308,7 @@ class CSEClient:
         conn = sqlite3.connect(self.cache_db_path)
         cursor = conn.cursor()
 
-        cursor.execute(
-            "SELECT queries_used FROM cse_quota WHERE date = ?", (today,)
-        )
+        cursor.execute("SELECT queries_used FROM cse_quota WHERE date = ?", (today,))
 
         row = cursor.fetchone()
         conn.close()
@@ -337,9 +343,7 @@ class CSEClient:
         conn = sqlite3.connect(self.cache_db_path)
         cursor = conn.cursor()
 
-        cursor.execute(
-            "SELECT queries_used FROM cse_quota WHERE date = ?", (today,)
-        )
+        cursor.execute("SELECT queries_used FROM cse_quota WHERE date = ?", (today,))
 
         row = cursor.fetchone()
         conn.close()

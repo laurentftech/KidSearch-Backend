@@ -19,20 +19,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 #  Vérification de l'accès
 # =======================
 from dashboard.src.auth import check_authentication, show_user_widget
+
 check_authentication()
 
 # Initialize translator
-if 'lang' not in st.session_state:
+if "lang" not in st.session_state:
     st.session_state.lang = "fr"
 t = get_translator(st.session_state.lang)
 
 # Afficher le widget utilisateur avec bouton de déconnexion
 show_user_widget(t)
-
-st.set_page_config(
-    page_title=t("api_metrics.title"),
-    page_icon="📈",
-)
 
 st.title(t("api_metrics.title"))
 st.markdown(t("api_metrics.subtitle"))
@@ -45,7 +41,7 @@ METRICS_ENDPOINT = f"{API_URL}/api/metrics"
 def fetch_metrics():
     """Fetch metrics from the API endpoint."""
     try:
-        headers = {'Cache-Control': 'no-cache', 'Pragma': 'no-cache'}
+        headers = {"Cache-Control": "no-cache", "Pragma": "no-cache"}
         response = requests.get(METRICS_ENDPOINT, timeout=15, headers=headers)
         response.raise_for_status()
         return response.text
@@ -84,7 +80,11 @@ with col1:
         st.cache_data.clear()
 
 with col2:
-    if st.button("🗑️ Réinitialiser les métriques", type="secondary", help="Supprime toutes les statistiques et réinitialise les métriques à zéro"):
+    if st.button(
+        "🗑️ Réinitialiser les métriques",
+        type="secondary",
+        help="Supprime toutes les statistiques et réinitialise les métriques à zéro",
+    ):
         result = reset_metrics()
         if result and result.get("status") == "success":
             st.success("✅ Les métriques ont été réinitialisées avec succès")
@@ -103,7 +103,7 @@ if metrics_text:
     # --- Main Search Metrics ---
     st.subheader(t("api_metrics.main_search_metrics"))
     col1, col2 = st.columns(2)
-    
+
     avg_search_time = metrics_data.get("avg_search_time_ms", 0)
     total_http_requests = metrics_data.get("http_requests_total", 0)
 
@@ -112,9 +112,9 @@ if metrics_text:
 
     # --- Detailed Response Times ---
     st.subheader(t("api_metrics.avg_response_times"))
-    
+
     col1, col2, col3, col4 = st.columns(4)
-    
+
     avg_typesense_time = metrics_data.get("avg_typesense_time_ms", 0)
     avg_wiki_time = metrics_data.get("avg_wiki_time_ms", 0)
     avg_cse_time = metrics_data.get("avg_cse_time_ms", 0)
@@ -128,7 +128,9 @@ if metrics_text:
     # --- Timing Breakdown Visualization ---
     st.subheader("⏱️ Répartition des temps de traitement")
 
-    st.info("ℹ️ Les requêtes Typesense, MediaWiki et Google CSE sont exécutées **en parallèle** via `asyncio.gather()`. Le reranking est ensuite appliqué de manière séquentielle.")
+    st.info(
+        "ℹ️ Les requêtes Typesense, MediaWiki et Google CSE sont exécutées **en parallèle** via `asyncio.gather()`. Le reranking est ensuite appliqué de manière séquentielle."
+    )
 
     # Parallel operations (executed concurrently)
     parallel_operations = {
@@ -141,7 +143,9 @@ if metrics_text:
     parallel_ops_filtered = {k: v for k, v in parallel_operations.items() if v > 0}
 
     # Max time of parallel operations (since they run concurrently)
-    max_parallel_time = max(parallel_ops_filtered.values()) if parallel_ops_filtered else 0
+    max_parallel_time = (
+        max(parallel_ops_filtered.values()) if parallel_ops_filtered else 0
+    )
 
     # Sequential reranking time
     reranking_time = avg_reranking_time
@@ -162,10 +166,10 @@ if metrics_text:
             # Define colors
             colors = {
                 "Typesense": "#3498db",  # Blue
-                "MediaWiki": "#2ecc71",     # Green
-                "Google CSE": "#1abc9c",    # Cyan
-                "Reranking": "#e74c3c",     # Red
-                "Overhead": "#95a5a6"       # Gray
+                "MediaWiki": "#2ecc71",  # Green
+                "Google CSE": "#1abc9c",  # Cyan
+                "Reranking": "#e74c3c",  # Red
+                "Overhead": "#95a5a6",  # Gray
             }
 
             y_pos = 0
@@ -173,17 +177,19 @@ if metrics_text:
             # Parallel operations (all start at time 0)
             for name, time_ms in parallel_ops_filtered.items():
                 if time_ms > 0:
-                    fig_gantt.add_trace(go.Bar(
-                        name=name,
-                        x=[time_ms],
-                        y=[name],
-                        orientation='h',
-                        marker_color=colors.get(name, "#34495e"),
-                        text=f"{time_ms:.1f} ms",
-                        textposition='inside',
-                        hovertemplate=f"<b>{name}</b> (parallèle)<br>Durée: {time_ms:.1f} ms<extra></extra>",
-                        showlegend=False
-                    ))
+                    fig_gantt.add_trace(
+                        go.Bar(
+                            name=name,
+                            x=[time_ms],
+                            y=[name],
+                            orientation="h",
+                            marker_color=colors.get(name, "#34495e"),
+                            text=f"{time_ms:.1f} ms",
+                            textposition="inside",
+                            hovertemplate=f"<b>{name}</b> (parallèle)<br>Durée: {time_ms:.1f} ms<extra></extra>",
+                            showlegend=False,
+                        )
+                    )
 
             # Add a visual separator
             y_labels = list(parallel_ops_filtered.keys())
@@ -193,17 +199,19 @@ if metrics_text:
                 y_labels.append("─────────")  # Separator
                 y_labels.append("Reranking")
 
-                fig_gantt.add_trace(go.Bar(
-                    name="Reranking",
-                    x=[reranking_time],
-                    y=["Reranking"],
-                    orientation='h',
-                    marker_color=colors["Reranking"],
-                    text=f"{reranking_time:.1f} ms",
-                    textposition='inside',
-                    hovertemplate=f"<b>Reranking</b> (séquentiel)<br>Durée: {reranking_time:.1f} ms<br>Démarre après les requêtes parallèles<extra></extra>",
-                    showlegend=False
-                ))
+                fig_gantt.add_trace(
+                    go.Bar(
+                        name="Reranking",
+                        x=[reranking_time],
+                        y=["Reranking"],
+                        orientation="h",
+                        marker_color=colors["Reranking"],
+                        text=f"{reranking_time:.1f} ms",
+                        textposition="inside",
+                        hovertemplate=f"<b>Reranking</b> (séquentiel)<br>Durée: {reranking_time:.1f} ms<br>Démarre après les requêtes parallèles<extra></extra>",
+                        showlegend=False,
+                    )
+                )
 
             fig_gantt.update_layout(
                 height=max(200, len(y_labels) * 40),
@@ -211,37 +219,53 @@ if metrics_text:
                 xaxis_title="Temps (ms)",
                 yaxis_title="",
                 title="Exécution parallèle des opérations",
-                yaxis=dict(categoryorder='array', categoryarray=y_labels[::-1])
+                yaxis=dict(categoryorder="array", categoryarray=y_labels[::-1]),
             )
 
-            st.plotly_chart(fig_gantt, width='stretch')
+            st.plotly_chart(fig_gantt, width="stretch")
 
         with col2:
             # Waterfall chart showing time composition
-            fig_waterfall = go.Figure(go.Waterfall(
-                name="Temps",
-                orientation="v",
-                measure=["relative", "relative", "relative", "total"],
-                x=["Requêtes<br>parallèles", "Reranking<br>(séquentiel)", "Overhead<br>système", "Temps total"],
-                y=[max_parallel_time, reranking_time, overhead_time, avg_search_time],
-                text=[f"{max_parallel_time:.1f} ms", f"{reranking_time:.1f} ms",
-                      f"{overhead_time:.1f} ms", f"{avg_search_time:.1f} ms"],
-                textposition="outside",
-                connector={"line": {"color": "rgb(63, 63, 63)"}},
-                decreasing={"marker": {"color": "#e74c3c"}},
-                increasing={"marker": {"color": "#3498db"}},
-                totals={"marker": {"color": "#2ecc71"}}
-            ))
+            fig_waterfall = go.Figure(
+                go.Waterfall(
+                    name="Temps",
+                    orientation="v",
+                    measure=["relative", "relative", "relative", "total"],
+                    x=[
+                        "Requêtes<br>parallèles",
+                        "Reranking<br>(séquentiel)",
+                        "Overhead<br>système",
+                        "Temps total",
+                    ],
+                    y=[
+                        max_parallel_time,
+                        reranking_time,
+                        overhead_time,
+                        avg_search_time,
+                    ],
+                    text=[
+                        f"{max_parallel_time:.1f} ms",
+                        f"{reranking_time:.1f} ms",
+                        f"{overhead_time:.1f} ms",
+                        f"{avg_search_time:.1f} ms",
+                    ],
+                    textposition="outside",
+                    connector={"line": {"color": "rgb(63, 63, 63)"}},
+                    decreasing={"marker": {"color": "#e74c3c"}},
+                    increasing={"marker": {"color": "#3498db"}},
+                    totals={"marker": {"color": "#2ecc71"}},
+                )
+            )
 
             fig_waterfall.update_layout(
                 title="Composition du temps total",
                 height=350,
                 margin=dict(l=0, r=0, t=30, b=0),
                 showlegend=False,
-                yaxis_title="Temps (ms)"
+                yaxis_title="Temps (ms)",
             )
 
-            st.plotly_chart(fig_waterfall, width='stretch')
+            st.plotly_chart(fig_waterfall, width="stretch")
 
         # Summary insights
         st.markdown("---")
@@ -251,21 +275,21 @@ if metrics_text:
             st.metric(
                 "⚡ Requêtes parallèles",
                 f"{max_parallel_time:.1f} ms",
-                help="Temps le plus long parmi les requêtes parallèles (Typesense, Wiki, CSE)"
+                help="Temps le plus long parmi les requêtes parallèles (Typesense, Wiki, CSE)",
             )
 
         with col2:
             st.metric(
                 "🧮 Reranking",
                 f"{reranking_time:.1f} ms",
-                help="Temps de calcul du reranking sémantique (séquentiel)"
+                help="Temps de calcul du reranking sémantique (séquentiel)",
             )
 
         with col3:
             st.metric(
                 "⚙️ Overhead",
                 f"{overhead_time:.1f} ms",
-                help="Temps de traitement additionnel (merge, filtrage, etc.)"
+                help="Temps de traitement additionnel (merge, filtrage, etc.)",
             )
 
         with col4:
@@ -275,7 +299,7 @@ if metrics_text:
                 st.metric(
                     "📊 Parallélisation",
                     f"{efficiency:.0f}%",
-                    help="Pourcentage du temps utilisé par les requêtes parallèles"
+                    help="Pourcentage du temps utilisé par les requêtes parallèles",
                 )
 
         # Show detailed breakdown of parallel operations
@@ -284,11 +308,15 @@ if metrics_text:
             cols = st.columns(len(parallel_ops_filtered))
             for idx, (name, time_ms) in enumerate(parallel_ops_filtered.items()):
                 with cols[idx]:
-                    pct = (time_ms / max_parallel_time * 100) if max_parallel_time > 0 else 0
+                    pct = (
+                        (time_ms / max_parallel_time * 100)
+                        if max_parallel_time > 0
+                        else 0
+                    )
                     st.metric(
                         name,
                         f"{time_ms:.1f} ms",
-                        delta=f"{pct:.0f}% du max" if pct < 100 else "Plus lent"
+                        delta=f"{pct:.0f}% du max" if pct < 100 else "Plus lent",
                     )
     else:
         st.info("Aucune donnée de timing disponible pour le moment.")
@@ -306,11 +334,13 @@ if metrics_text:
     col1.metric("Temps moyen embedding par page", f"{avg_embedding_time:.2f} ms")
     col2.metric("Temps moyen indexation par page", f"{avg_indexing_time:.2f} ms")
 
-
     # --- All Metrics Expander ---
     with st.expander(t("api_metrics.view_all_metrics")):
-        df = pd.DataFrame(sorted(metrics_data.items()), columns=[t("api_metrics.metric"), t("api_metrics.value")])
-        st.dataframe(df, width='stretch')
+        df = pd.DataFrame(
+            sorted(metrics_data.items()),
+            columns=[t("api_metrics.metric"), t("api_metrics.value")],
+        )
+        st.dataframe(df, width="stretch")
 
 else:
     st.warning(t("api_metrics.no_metrics_warning"))

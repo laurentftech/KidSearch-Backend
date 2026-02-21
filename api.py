@@ -7,7 +7,6 @@ Starts the FastAPI server for unified search (Typesense + Google CSE + Reranking
 import os
 import sys
 import logging
-from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -46,12 +45,11 @@ def main():
 
     # Check required dependencies
     try:
-        import fastapi
-        import uvicorn
+        import fastapi  # noqa: F401
+        import uvicorn  # noqa: F401
     except ImportError:
         logger.error(
-            "FastAPI dependencies not installed. "
-            "Run: pip install -r requirements.txt"
+            "FastAPI dependencies not installed. Run: pip install -r requirements.txt"
         )
         sys.exit(1)
 
@@ -63,9 +61,12 @@ def main():
     cse_api_key = os.getenv("GOOGLE_CSE_API_KEY")
     cse_id = os.getenv("GOOGLE_CSE_ID")
 
-    if not cse_api_key or not cse_id or \
-       cse_api_key == "your_google_api_key_here" or \
-       cse_id == "your_search_engine_id_here":
+    if (
+        not cse_api_key
+        or not cse_id
+        or cse_api_key == "your_google_api_key_here"
+        or cse_id == "your_search_engine_id_here"
+    ):
         logger.warning(
             "Google CSE not configured. "
             "API will work with Typesense only. "
@@ -81,7 +82,9 @@ def main():
     logger.info(f"Port: {port}")
     logger.info(f"Workers: {workers}")
     logger.info(f"Reranking: {os.getenv('RERANKING_ENABLED', 'true')}")
-    logger.info(f"Reranker Model: {os.getenv('RERANKER_MODEL', 'intfloat/multilingual-e5-base')}")
+    logger.info(
+        f"Reranker Model: {os.getenv('RERANKER_MODEL', 'intfloat/multilingual-e5-base')}"
+    )
     logger.info("=" * 60)
     logger.info("")
     logger.info("API Documentation:")
@@ -98,6 +101,7 @@ def main():
     # Start server
     try:
         import uvicorn
+
         uvicorn.run(
             "kidsearch.api.server:app",
             host=host,

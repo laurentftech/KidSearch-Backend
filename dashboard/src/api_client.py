@@ -26,7 +26,7 @@ class APIClient:
     def _get_local_storage(self):
         """Récupère l'instance LocalStorage."""
         if self.local_storage is None:
-            if 'local_storage' not in st.session_state:
+            if "local_storage" not in st.session_state:
                 st.session_state.local_storage = LocalStorage()
             self.local_storage = st.session_state.local_storage
         return self.local_storage
@@ -41,21 +41,23 @@ class APIClient:
         headers = {}
 
         # Essayer de récupérer le JWT depuis session_state
-        jwt_token = st.session_state.get('oauth_token')
+        jwt_token = st.session_state.get("oauth_token")
 
         # Si pas dans session_state, essayer localStorage
         if not jwt_token:
             try:
-                jwt_token = self._get_local_storage().getItem('auth_token')
+                jwt_token = self._get_local_storage().getItem("auth_token")
             except Exception:
                 pass
 
         if jwt_token:
-            headers['Authorization'] = f'Bearer {jwt_token}'
+            headers["Authorization"] = f"Bearer {jwt_token}"
 
         return headers
 
-    def get(self, endpoint: str, params: Optional[Dict[str, Any]] = None, **kwargs) -> requests.Response:
+    def get(
+        self, endpoint: str, params: Optional[Dict[str, Any]] = None, **kwargs
+    ) -> requests.Response:
         """
         Effectue une requête GET avec authentification JWT.
 
@@ -68,12 +70,18 @@ class APIClient:
             Response object de requests
         """
         url = f"{self.base_url}{endpoint}"
-        headers = kwargs.pop('headers', {})
+        headers = kwargs.pop("headers", {})
         headers.update(self._get_auth_headers())
 
         return requests.get(url, params=params, headers=headers, **kwargs)
 
-    def post(self, endpoint: str, data: Optional[Dict[str, Any]] = None, json: Optional[Dict[str, Any]] = None, **kwargs) -> requests.Response:
+    def post(
+        self,
+        endpoint: str,
+        data: Optional[Dict[str, Any]] = None,
+        json: Optional[Dict[str, Any]] = None,
+        **kwargs,
+    ) -> requests.Response:
         """
         Effectue une requête POST avec authentification JWT.
 
@@ -87,12 +95,18 @@ class APIClient:
             Response object de requests
         """
         url = f"{self.base_url}{endpoint}"
-        headers = kwargs.pop('headers', {})
+        headers = kwargs.pop("headers", {})
         headers.update(self._get_auth_headers())
 
         return requests.post(url, data=data, json=json, headers=headers, **kwargs)
 
-    def put(self, endpoint: str, data: Optional[Dict[str, Any]] = None, json: Optional[Dict[str, Any]] = None, **kwargs) -> requests.Response:
+    def put(
+        self,
+        endpoint: str,
+        data: Optional[Dict[str, Any]] = None,
+        json: Optional[Dict[str, Any]] = None,
+        **kwargs,
+    ) -> requests.Response:
         """
         Effectue une requête PUT avec authentification JWT.
 
@@ -106,7 +120,7 @@ class APIClient:
             Response object de requests
         """
         url = f"{self.base_url}{endpoint}"
-        headers = kwargs.pop('headers', {})
+        headers = kwargs.pop("headers", {})
         headers.update(self._get_auth_headers())
 
         return requests.put(url, data=data, json=json, headers=headers, **kwargs)
@@ -123,7 +137,7 @@ class APIClient:
             Response object de requests
         """
         url = f"{self.base_url}{endpoint}"
-        headers = kwargs.pop('headers', {})
+        headers = kwargs.pop("headers", {})
         headers.update(self._get_auth_headers())
 
         return requests.delete(url, headers=headers, **kwargs)

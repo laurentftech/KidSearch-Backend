@@ -40,3 +40,4 @@ google-genai
 PyYAML
 tqdm
 certifi
+APScheduler>=3.10.0

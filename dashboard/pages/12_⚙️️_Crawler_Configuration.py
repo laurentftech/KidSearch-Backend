@@ -15,10 +15,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 #  Vérification de l'accès
 # =======================
 from dashboard.src.auth import check_authentication, show_user_widget
+
 check_authentication()
 
 # Initialiser le traducteur
-if 'lang' not in st.session_state:
+if "lang" not in st.session_state:
     st.session_state.lang = "fr"
 t = get_translator(st.session_state.lang)
 
@@ -36,31 +37,46 @@ else:
     tab1, tab2 = st.tabs([t("config.tab_preview"), t("config.tab_editor")])
 
     with tab1:
-        if 'sites' in sites_config:
-            st.subheader(t("config.preview_title").format(count=len(sites_config['sites'])))
+        if "sites" in sites_config:
+            st.subheader(
+                t("config.preview_title").format(count=len(sites_config["sites"]))
+            )
 
-            for site in sites_config['sites']:
-                with st.expander(f"🌐 {site.get('name', t('config.site_name_undefined'))}"):
+            for site in sites_config["sites"]:
+                with st.expander(
+                    f"🌐 {site.get('name', t('config.site_name_undefined'))}"
+                ):
                     col1, col2 = st.columns(2)
                     with col1:
                         st.write(f"{t('config.site_type')} `{site.get('type')}`")
                         st.write(f"{t('config.site_url')} {site.get('crawl')}")
-                        st.write(f"{t('config.site_max_pages')} {site.get('max_pages', t('config.unlimited'))}")
+                        st.write(
+                            f"{t('config.site_max_pages')} {site.get('max_pages', t('config.unlimited'))}"
+                        )
                     with col2:
-                        st.write(f"{t('config.site_depth')} {site.get('depth', t('config.unlimited_depth'))}")
-                        st.write(f"{t('config.site_delay')} {site.get('delay', t('config.auto_delay'))}s")
-                        if 'lang' in site:
+                        st.write(
+                            f"{t('config.site_depth')} {site.get('depth', t('config.unlimited_depth'))}"
+                        )
+                        st.write(
+                            f"{t('config.site_delay')} {site.get('delay', t('config.auto_delay'))}s"
+                        )
+                        if "lang" in site:
                             st.write(f"{t('config.site_lang')} `{site.get('lang')}`")
 
-                    if site.get('exclude'):
+                    if site.get("exclude"):
                         st.write(t("config.exclusions"))
-                        st.code('\n'.join(site['exclude']), language='text')
+                        st.code("\n".join(site["exclude"]), language="text")
 
     with tab2:
         st.info(t("config.info_edit"))
 
         try:
-            config_text = yaml.dump(sites_config, default_flow_style=False, allow_unicode=True, sort_keys=False)
+            config_text = yaml.dump(
+                sites_config,
+                default_flow_style=False,
+                allow_unicode=True,
+                sort_keys=False,
+            )
         except Exception:
             config_text = "Could not format existing configuration."
 
@@ -69,7 +85,7 @@ else:
             value=config_text,
             height=500,
             key="config_editor",
-            disabled=running
+            disabled=running,
         )
 
         if running:
@@ -93,5 +109,3 @@ else:
         with col2:
             if st.button(t("config.reset_button"), disabled=running):
                 st.rerun()
-
-

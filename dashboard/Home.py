@@ -5,14 +5,10 @@ from pathlib import Path
 import streamlit as st
 from dotenv import load_dotenv
 
-# This is a hack to make sure the app is launched from the root of the project
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-# Charger les variables d'environnement pour que Streamlit les voie
 load_dotenv()
 
-# Local imports after sys.path manipulation
-from dashboard.src.auth import check_authentication, show_user_widget  # noqa: E402
+from dashboard.src.auth import check_authentication  # noqa: E402
 from dashboard.src.i18n import get_translator  # noqa: E402
 from dashboard.src.state import is_crawler_running  # noqa: E402
 from dashboard.src.typesense_client import get_collection_stats, get_typesense_client  # noqa: E402
@@ -20,43 +16,25 @@ from dashboard.src.utils import load_cache_stats  # noqa: E402
 from kidsearch.config import INDEX_NAME  # noqa: E402
 
 # =======================
-#  Configuration & Page
+#  Configuration
 # =======================
 st.set_page_config(
     page_title="KidSearch Dashboard",
     page_icon="🕸️",
-    layout="wide"
+    layout="wide",
 )
 
-# =======================
-#  Internationalization (i18n)
-# =======================
-
-AVAILABLE_LANGUAGES = {
-    "en": "English",
-    "fr": "Français"
-}
-
-# Initialiser la langue dans l'état de la session si elle n'existe pas
-if 'lang' not in st.session_state:
-    st.session_state.lang = "fr"  # Langue par défaut
-
-# Créer la fonction de traduction
+if "lang" not in st.session_state:
+    st.session_state.lang = "fr"
 t = get_translator(st.session_state.lang)
 
-# =======================
-#  Vérification de l'accès
-# =======================
-token_info = check_authentication()
-
-# Afficher le widget utilisateur avec bouton de déconnexion
-show_user_widget(t)
-
+check_authentication()
 
 # =======================
 #  Custom CSS
 # =======================
-st.markdown("""
+st.markdown(
+    """
 <style>
     .error-box, .success-box, .warning-box {
         padding: 12px; margin: 8px 0; border-radius: 6px; color: inherit;
@@ -65,128 +43,135 @@ st.markdown("""
     .success-box { background-color: rgba(34, 197, 94, 0.1); border-left: 4px solid #22c55e; }
     .warning-box { background-color: rgba(251, 191, 36, 0.1); border-left: 4px solid #fbbf24; }
 </style>
-""", unsafe_allow_html=True)
-
+""",
+    unsafe_allow_html=True,
+)
 
 # =======================
-#  SIDEBAR
+#  Navigation avec sections
+# =======================
+api_enabled = os.getenv("API_ENABLED", "false").lower() == "true"
+
+sections = {
+    f"🕸️ {t('section_crawler')}": [
+        st.Page(
+            "pages/10_🏠️_Overview.py",
+            title=t("nav.overview"),
+            icon=":material/monitoring:",
+            default=True,
+        ),
+        st.Page(
+            "pages/11_🔧️_Crawler_Controls.py",
+            title=t("nav.controls"),
+            icon=":material/settings:",
+        ),
+        st.Page(
+            "pages/12_⚙️️_Crawler_Configuration.py",
+            title=t("nav.config"),
+            icon=":material/tune:",
+        ),
+    ],
+    f"🔍 {t('nav.section_content')}": [
+        st.Page(
+            "pages/13_🔍️_Search.py", title=t("nav.search"), icon=":material/search:"
+        ),
+        st.Page(
+            "pages/14_📊_Statistics.py",
+            title=t("nav.stats"),
+            icon=":material/bar_chart:",
+        ),
+        st.Page(
+            "pages/15_🌳_Page_Tree.py",
+            title=t("nav.tree"),
+            icon=":material/account_tree:",
+        ),
+        st.Page(
+            "pages/16_🧠_Embeddings.py",
+            title=t("nav.embeddings"),
+            icon=":material/psychology:",
+        ),
+    ],
+    f"📋 {t('nav.section_system')}": [
+        st.Page("pages/17_🪵️_Logs.py", title=t("nav.logs"), icon=":material/article:"),
+        st.Page(
+            "pages/18_⚙️_System_Status.py",
+            title=t("nav.system"),
+            icon=":material/health_and_safety:",
+        ),
+    ],
+}
+
+if api_enabled:
+    sections[f"🚀 {t('section_api')}"] = [
+        st.Page(
+            "pages/20_🚀_API_Documentation.py",
+            title=t("nav.api_docs"),
+            icon=":material/description:",
+        ),
+        st.Page(
+            "pages/21_🚀_API_Monitor.py",
+            title=t("nav.api_monitor"),
+            icon=":material/monitor_heart:",
+        ),
+        st.Page(
+            "pages/22_📈_API_Metrics.py",
+            title=t("nav.api_metrics"),
+            icon=":material/analytics:",
+        ),
+    ]
+
+pg = st.navigation(sections)
+
+# =======================
+#  Sidebar — métriques & langue
 # =======================
 with st.sidebar:
-    st.title(t('dashboard_title'))
-
-    # Sélecteur de langue avec drapeaux
-    lang_options = {
-        "en": "🇬🇧 English",
-        "fr": "🇫🇷 Français"
-    }
-    selected_lang_code = st.selectbox(
+    # Sélecteur de langue
+    lang_options = {"fr": "🇫🇷 Français", "en": "🇬🇧 English"}
+    selected_lang = st.selectbox(
         "Language",
         options=list(lang_options.keys()),
         format_func=lambda code: lang_options[code],
-        index=list(lang_options.keys()).index(st.session_state.lang)
+        index=list(lang_options.keys()).index(st.session_state.lang),
+        label_visibility="collapsed",
     )
-
-    if selected_lang_code != st.session_state.lang:
-        st.session_state.lang = selected_lang_code
+    if selected_lang != st.session_state.lang:
+        st.session_state.lang = selected_lang
         st.rerun()
 
     st.markdown("---")
 
-    # Section CRAWLER
-    st.markdown(f"### 🕸️ {t('section_crawler')}")
-
-    # Métriques Crawler
+    # Statut crawler
     running = is_crawler_running()
-    st.metric(t('crawler_status'), f"🟢 {t('active')}" if running else f"🔴 {t('stopped')}")
+    st.metric(
+        t("crawler_status"), f"🟢 {t('active')}" if running else f"🔴 {t('stopped')}"
+    )
 
     cache_stats = load_cache_stats()
     if cache_stats:
-        st.metric(t('cached_urls'), f"{cache_stats['total_urls']:,}")
+        st.metric(t("cached_urls"), f"{cache_stats['total_urls']:,}")
 
-    st.markdown(t('crawler_pages_info'))
-
-    st.markdown("---")
-
-    # Section API
-    st.markdown(f"### 🚀 {t('section_api')}")
-
-    # Vérifier si l'API est activée
-    api_enabled = os.getenv("API_ENABLED", "false").lower() == "true"
+    # Statut API + Typesense
     if api_enabled:
-        st.metric(t('api_status'), f"🟢 {t('active')}")
-        
-        # Construire l'URL de l'API pour l'affichage
-        api_display_host = os.getenv("API_DISPLAY_HOST") or os.getenv("DISPLAY_HOST")
-        if api_display_host:
-            # Si un domaine public est fourni, on utilise https et pas de port
-            api_url = f"https://{api_display_host}"
-        else:
-            # Sinon, on construit une URL locale pour le développement
-            api_listen_host = os.getenv("API_HOST", "0.0.0.0")
-            display_host = "localhost" if api_listen_host == "0.0.0.0" else api_listen_host
-            api_port = os.getenv("API_PORT", "8080")
-            api_url = f"http://{display_host}:{api_port}"
-        
-        st.caption(f"URL: {api_url}")
-        # Sauvegarder l'URL dans la session pour les autres pages
-        st.session_state.api_url = api_url
+        st.metric(t("api_status"), f"🟢 {t('active')}")
 
-    else:
-        st.metric(t('api_status'), f"🔴 {t('disabled')}")
+        @st.cache_data(ttl=30, show_spinner=False)
+        def get_typesense_doc_count():
+            client = get_typesense_client()
+            if client:
+                try:
+                    stats = get_collection_stats(client, INDEX_NAME)
+                    return stats.get("number_of_documents", 0) if stats else None
+                except Exception:
+                    return None
+            return None
 
-    # Métriques Typesense (cached for performance)
-    @st.cache_data(ttl=30, show_spinner=False)
-    def get_typesense_doc_count():
-        client = get_typesense_client()
-        if client:
-            try:
-                stats = get_collection_stats(client, INDEX_NAME)
-                return stats.get('number_of_documents', 0) if stats else None
-            except Exception:
-                return None
-        return None
-
-    num_docs = get_typesense_doc_count()
-    if num_docs is not None:
-        st.metric(t('typesense_docs'), f"{num_docs:,}")
-    else:
-        st.metric(t('typesense_docs'), "N/A")
-
-    st.markdown(t('api_pages_info'))
-
-    st.markdown("---")
+        num_docs = get_typesense_doc_count()
+        st.metric(
+            t("typesense_docs"), f"{num_docs:,}" if num_docs is not None else "N/A"
+        )
 
 # =======================
-#  Main Welcome Page
+#  Lancement de la page sélectionnée
 # =======================
-st.title(t('welcome_title'))
-st.markdown(t('welcome_subtitle'))
-st.info(t('welcome_info'), icon="💡")
-
-col1, col2 = st.columns(2)
-
-with col1:
-    st.subheader(t('available_pages'))
-    st.markdown(f"""
-    **{t('section_crawler')}**
-    {t('page_overview')}
-    {t('page_controls')}
-    {t('page_config')}
-    {t('page_search')}
-    {t('page_stats')}
-    {t('page_tree')}
-    {t('page_logs')}
-
-    **{t('section_api')}**
-    {t('page_embeddings')}
-    {t('page_api_documentation')}
-    {t('page_api_monitor')}
-    {t('page_api_metrics')}
-    """)
-
-with col2:
-    st.subheader(t('current_status'))
-    if running:
-        st.success(t('status_running'))
-    else:
-        st.warning(t('status_stopped'))
+pg.run()

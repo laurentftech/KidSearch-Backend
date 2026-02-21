@@ -98,30 +98,46 @@ class StatsDatabase:
             cursor.execute("PRAGMA table_info(search_queries)")
             columns = [column[1] for column in cursor.fetchall()]
 
-            if 'use_hybrid' not in columns:
+            if "use_hybrid" not in columns:
                 logger.info("Updating stats.db schema: adding 'use_hybrid' column")
-                cursor.execute("ALTER TABLE search_queries ADD COLUMN use_hybrid BOOLEAN")
+                cursor.execute(
+                    "ALTER TABLE search_queries ADD COLUMN use_hybrid BOOLEAN"
+                )
 
-            if 'use_reranking' not in columns:
+            if "use_reranking" not in columns:
                 logger.info("Updating stats.db schema: adding 'use_reranking' column")
-                cursor.execute("ALTER TABLE search_queries ADD COLUMN use_reranking BOOLEAN")
-            
-            if 'wiki_results' not in columns:
-                logger.info("Updating stats.db schema: adding 'wiki_results' column")
-                cursor.execute("ALTER TABLE search_queries ADD COLUMN wiki_results INTEGER")
+                cursor.execute(
+                    "ALTER TABLE search_queries ADD COLUMN use_reranking BOOLEAN"
+                )
 
-            if 'wiki_time_ms' not in columns:
+            if "wiki_results" not in columns:
+                logger.info("Updating stats.db schema: adding 'wiki_results' column")
+                cursor.execute(
+                    "ALTER TABLE search_queries ADD COLUMN wiki_results INTEGER"
+                )
+
+            if "wiki_time_ms" not in columns:
                 logger.info("Updating stats.db schema: adding 'wiki_time_ms' column")
-                cursor.execute("ALTER TABLE search_queries ADD COLUMN wiki_time_ms REAL")
+                cursor.execute(
+                    "ALTER TABLE search_queries ADD COLUMN wiki_time_ms REAL"
+                )
 
             # Migration: Rename meilisearch_* columns to typesense_*
-            if 'meilisearch_results' in columns and 'typesense_results' not in columns:
-                logger.info("Migrating stats.db schema: renaming meilisearch_results to typesense_results")
-                cursor.execute("ALTER TABLE search_queries RENAME COLUMN meilisearch_results TO typesense_results")
+            if "meilisearch_results" in columns and "typesense_results" not in columns:
+                logger.info(
+                    "Migrating stats.db schema: renaming meilisearch_results to typesense_results"
+                )
+                cursor.execute(
+                    "ALTER TABLE search_queries RENAME COLUMN meilisearch_results TO typesense_results"
+                )
 
-            if 'meilisearch_time_ms' in columns and 'typesense_time_ms' not in columns:
-                logger.info("Migrating stats.db schema: renaming meilisearch_time_ms to typesense_time_ms")
-                cursor.execute("ALTER TABLE search_queries RENAME COLUMN meilisearch_time_ms TO typesense_time_ms")
+            if "meilisearch_time_ms" in columns and "typesense_time_ms" not in columns:
+                logger.info(
+                    "Migrating stats.db schema: renaming meilisearch_time_ms to typesense_time_ms"
+                )
+                cursor.execute(
+                    "ALTER TABLE search_queries RENAME COLUMN meilisearch_time_ms TO typesense_time_ms"
+                )
 
         except Exception as e:
             logger.error(f"Failed to migrate stats_db schema: {e}")
@@ -156,11 +172,12 @@ class StatsDatabase:
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
-            
+
             now = datetime.utcnow()
             timestamp = int(now.timestamp())
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO search_queries (
                     query, lang, limit_requested, use_cse, use_reranking, use_hybrid,
                     total_results, typesense_results, cse_results, wiki_results,
@@ -168,22 +185,29 @@ class StatsDatabase:
                     reranking_time_ms, reranking_applied, cache_hit,
                     timestamp, created_at
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                query, lang, limit, use_cse, use_reranking, use_hybrid,
-                stats.get("total_results", 0),
-                stats.get("typesense_results", 0),
-                stats.get("cse_results", 0),
-                stats.get("wiki_results", 0),
-                stats.get("processing_time_ms", 0),
-                stats.get("typesense_time_ms"),
-                stats.get("cse_time_ms"),
-                stats.get("wiki_time_ms"),
-                stats.get("reranking_time_ms"),
-                stats.get("reranking_applied", False),
-                stats.get("cache_hit", False),
-                timestamp,
-                now.isoformat(),
-            ))
+            """,
+                (
+                    query,
+                    lang,
+                    limit,
+                    use_cse,
+                    use_reranking,
+                    use_hybrid,
+                    stats.get("total_results", 0),
+                    stats.get("typesense_results", 0),
+                    stats.get("cse_results", 0),
+                    stats.get("wiki_results", 0),
+                    stats.get("processing_time_ms", 0),
+                    stats.get("typesense_time_ms"),
+                    stats.get("cse_time_ms"),
+                    stats.get("wiki_time_ms"),
+                    stats.get("reranking_time_ms"),
+                    stats.get("reranking_applied", False),
+                    stats.get("cache_hit", False),
+                    timestamp,
+                    now.isoformat(),
+                ),
+            )
 
             conn.commit()
             conn.close()
@@ -216,12 +240,23 @@ class StatsDatabase:
             now = datetime.utcnow()
             timestamp = int(now.timestamp())
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO feedback (
                     query, result_id, result_url, reason, comment,
                     timestamp, created_at
                 ) VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (query, result_id, result_url, reason, comment, timestamp, now.isoformat()))
+            """,
+                (
+                    query,
+                    result_id,
+                    result_url,
+                    reason,
+                    comment,
+                    timestamp,
+                    now.isoformat(),
+                ),
+            )
 
             conn.commit()
             conn.close()
@@ -255,7 +290,7 @@ class StatsDatabase:
 
             cursor.execute(
                 "SELECT COUNT(*) FROM search_queries WHERE timestamp > ?",
-                (one_hour_ago,)
+                (one_hour_ago,),
             )
             count = cursor.fetchone()[0]
 
@@ -287,7 +322,9 @@ class StatsDatabase:
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
-            cursor.execute("SELECT AVG(typesense_time_ms) FROM search_queries WHERE typesense_time_ms IS NOT NULL")
+            cursor.execute(
+                "SELECT AVG(typesense_time_ms) FROM search_queries WHERE typesense_time_ms IS NOT NULL"
+            )
             avg = cursor.fetchone()[0]
             conn.close()
             return avg or 0.0
@@ -300,20 +337,24 @@ class StatsDatabase:
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
-            cursor.execute("SELECT AVG(cse_time_ms) FROM search_queries WHERE cse_time_ms IS NOT NULL")
+            cursor.execute(
+                "SELECT AVG(cse_time_ms) FROM search_queries WHERE cse_time_ms IS NOT NULL"
+            )
             avg = cursor.fetchone()[0]
             conn.close()
             return avg or 0.0
         except Exception as e:
             logger.error(f"Failed to get avg cse time: {e}")
             return 0.0
-            
+
     def get_avg_wiki_time(self) -> float:
         """Get average MediaWiki query time in ms."""
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
-            cursor.execute("SELECT AVG(wiki_time_ms) FROM search_queries WHERE wiki_time_ms IS NOT NULL")
+            cursor.execute(
+                "SELECT AVG(wiki_time_ms) FROM search_queries WHERE wiki_time_ms IS NOT NULL"
+            )
             avg = cursor.fetchone()[0]
             conn.close()
             return avg or 0.0
@@ -326,7 +367,9 @@ class StatsDatabase:
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
-            cursor.execute("SELECT AVG(reranking_time_ms) FROM search_queries WHERE reranking_time_ms IS NOT NULL")
+            cursor.execute(
+                "SELECT AVG(reranking_time_ms) FROM search_queries WHERE reranking_time_ms IS NOT NULL"
+            )
             avg = cursor.fetchone()[0]
             conn.close()
             return avg or 0.0
@@ -375,13 +418,16 @@ class StatsDatabase:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT query, COUNT(*) as count
                 FROM search_queries
                 GROUP BY query
                 ORDER BY count DESC
                 LIMIT ?
-            """, (limit,))
+            """,
+                (limit,),
+            )
 
             rows = cursor.fetchall()
             conn.close()
@@ -408,7 +454,9 @@ class StatsDatabase:
                 conn.close()
                 return 0.0
 
-            cursor.execute("SELECT COUNT(*) FROM search_queries WHERE total_results = 0")
+            cursor.execute(
+                "SELECT COUNT(*) FROM search_queries WHERE total_results = 0"
+            )
             errors = cursor.fetchone()[0]
 
             conn.close()

@@ -10,6 +10,7 @@ from enum import Enum
 
 class AuthProvider(Enum):
     """Fournisseurs d'authentification disponibles."""
+
     OIDC = "oidc"  # OpenID Connect générique (Pocket ID, Authentik, Keycloak, etc.)
     GOOGLE = "google"
     GITHUB = "github"
@@ -55,7 +56,7 @@ class AuthConfig:
         # Proxy (si activé)
         if self._is_proxy_configured():
             providers.append(AuthProvider.PROXY)
-            
+
         # OIDC générique (priorité la plus haute)
         if self._is_oidc_configured():
             providers.append(AuthProvider.OIDC)
@@ -84,25 +85,31 @@ class AuthConfig:
 
     def _is_oidc_configured(self) -> bool:
         """Vérifie si OIDC générique est configuré."""
-        return all([
-            os.getenv("OIDC_CLIENT_ID"),
-            os.getenv("OIDC_CLIENT_SECRET"),
-            os.getenv("OIDC_ISSUER")
-        ])
+        return all(
+            [
+                os.getenv("OIDC_CLIENT_ID"),
+                os.getenv("OIDC_CLIENT_SECRET"),
+                os.getenv("OIDC_ISSUER"),
+            ]
+        )
 
     def _is_google_configured(self) -> bool:
         """Vérifie si Google OAuth est configuré."""
-        return all([
-            os.getenv("GOOGLE_OAUTH_CLIENT_ID"),
-            os.getenv("GOOGLE_OAUTH_CLIENT_SECRET")
-        ])
+        return all(
+            [
+                os.getenv("GOOGLE_OAUTH_CLIENT_ID"),
+                os.getenv("GOOGLE_OAUTH_CLIENT_SECRET"),
+            ]
+        )
 
     def _is_github_configured(self) -> bool:
         """Vérifie si GitHub OAuth est configuré."""
-        return all([
-            os.getenv("GITHUB_OAUTH_CLIENT_ID"),
-            os.getenv("GITHUB_OAUTH_CLIENT_SECRET")
-        ])
+        return all(
+            [
+                os.getenv("GITHUB_OAUTH_CLIENT_ID"),
+                os.getenv("GITHUB_OAUTH_CLIENT_SECRET"),
+            ]
+        )
 
     def _is_simple_configured(self) -> bool:
         """Vérifie si l'authentification simple est configurée."""
@@ -111,7 +118,9 @@ class AuthConfig:
     @property
     def is_enabled(self) -> bool:
         """Retourne True si l'authentification est activée."""
-        return not self.auth_disabled and AuthProvider.NONE not in self.enabled_providers
+        return (
+            not self.auth_disabled and AuthProvider.NONE not in self.enabled_providers
+        )
 
     @property
     def providers(self) -> List[AuthProvider]:
@@ -166,8 +175,13 @@ class AuthConfig:
             "client_id": os.getenv("GOOGLE_OAUTH_CLIENT_ID", ""),
             "client_secret": os.getenv("GOOGLE_OAUTH_CLIENT_SECRET", ""),
             "redirect_uri": os.getenv("GOOGLE_OAUTH_REDIRECT_URI", ""),
-            "authorize_url": os.getenv("GOOGLE_OAUTH_AUTHORIZE_URL", "https://accounts.google.com/o/oauth2/v2/auth"),
-            "token_url": os.getenv("GOOGLE_OAUTH_TOKEN_URL", "https://oauth2.googleapis.com/token"),
+            "authorize_url": os.getenv(
+                "GOOGLE_OAUTH_AUTHORIZE_URL",
+                "https://accounts.google.com/o/oauth2/v2/auth",
+            ),
+            "token_url": os.getenv(
+                "GOOGLE_OAUTH_TOKEN_URL", "https://oauth2.googleapis.com/token"
+            ),
             "scopes": "openid profile email",
         }
 
@@ -182,8 +196,12 @@ class AuthConfig:
             "client_id": os.getenv("GITHUB_OAUTH_CLIENT_ID", ""),
             "client_secret": os.getenv("GITHUB_OAUTH_CLIENT_SECRET", ""),
             "redirect_uri": os.getenv("GITHUB_OAUTH_REDIRECT_URI", ""),
-            "authorize_url": os.getenv("GITHUB_OAUTH_AUTHORIZE_URL", "https://github.com/login/oauth/authorize"),
-            "token_url": os.getenv("GITHUB_OAUTH_TOKEN_URL", "https://github.com/login/oauth/access_token"),
+            "authorize_url": os.getenv(
+                "GITHUB_OAUTH_AUTHORIZE_URL", "https://github.com/login/oauth/authorize"
+            ),
+            "token_url": os.getenv(
+                "GITHUB_OAUTH_TOKEN_URL", "https://github.com/login/oauth/access_token"
+            ),
             "scopes": "read:user user:email",
         }
 
@@ -223,7 +241,11 @@ class AuthConfig:
             return None  # Aucune restriction
 
         # Parse la liste d'emails (séparés par des virgules)
-        emails = [email.strip().lower() for email in allowed_emails_str.split(",") if email.strip()]
+        emails = [
+            email.strip().lower()
+            for email in allowed_emails_str.split(",")
+            if email.strip()
+        ]
 
         return emails if emails else None
 
@@ -248,7 +270,9 @@ class AuthConfig:
         return {
             "jwt_secret": os.getenv("JWT_SECRET_KEY", "change-me-in-production"),
             "jwt_algorithm": os.getenv("JWT_ALGORITHM", "HS256"),
-            "jwt_expiration_minutes": int(os.getenv("JWT_EXPIRATION_MINUTES", "1440")),  # 24h par défaut
+            "jwt_expiration_minutes": int(
+                os.getenv("JWT_EXPIRATION_MINUTES", "1440")
+            ),  # 24h par défaut
         }
 
 

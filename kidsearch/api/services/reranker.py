@@ -20,7 +20,13 @@ class HuggingFaceAPIReranker:
         # Configuration can be simplified or removed if not needed for other purposes.
         logger.info("Reranker initialized. Ready to perform calculations.")
 
-    def rerank(self, query: str, results: List[SearchResult], top_k: int, query_embedding: Optional[np.ndarray] = None) -> List[SearchResult]:
+    def rerank(
+        self,
+        query: str,
+        results: List[SearchResult],
+        top_k: int,
+        query_embedding: Optional[np.ndarray] = None,
+    ) -> List[SearchResult]:
         """
         Rerank results using semantic similarity.
 
@@ -34,7 +40,9 @@ class HuggingFaceAPIReranker:
             A sorted list of SearchResult objects.
         """
         if query_embedding is None or not results:
-            logger.warning("Query embedding not provided or no results to rerank. Returning original order.")
+            logger.warning(
+                "Query embedding not provided or no results to rerank. Returning original order."
+            )
             return results[:top_k]
 
         logger.info(f"Reranking {len(results)} results for query: '{query[:50]}...'")
@@ -48,9 +56,11 @@ class HuggingFaceAPIReranker:
                 if r.vectors and isinstance(r.vectors, list):
                     doc_embeddings.append(r.vectors)
                     valid_indices.append(i)
-            
+
             if not doc_embeddings:
-                logger.warning("No valid document embeddings found. Returning original order.")
+                logger.warning(
+                    "No valid document embeddings found. Returning original order."
+                )
                 return results[:top_k]
 
             doc_matrix = np.array(doc_embeddings, dtype=np.float32)
@@ -63,7 +73,9 @@ class HuggingFaceAPIReranker:
             doc_norms[doc_norms == 0] = 1e-9
 
             query_normalized = (query_embedding / query_norm).astype(np.float32)
-            doc_matrix_normalized = (doc_matrix / doc_norms[:, np.newaxis]).astype(np.float32)
+            doc_matrix_normalized = (doc_matrix / doc_norms[:, np.newaxis]).astype(
+                np.float32
+            )
 
             # 3. Compute cosine similarities
             cosine_scores = doc_matrix_normalized @ query_normalized
@@ -77,7 +89,7 @@ class HuggingFaceAPIReranker:
             # Penalize results without embeddings
             for i, r in enumerate(results):
                 if not r.vectors:
-                    r.score *= 0.1 # Penalize heavily
+                    r.score *= 0.1  # Penalize heavily
 
             # 5. Sort and limit
             results.sort(key=lambda x: x.score, reverse=True)

@@ -11,7 +11,7 @@ import logging
 import subprocess
 import signal
 from pathlib import Path
-from typing import List, Optional, Dict
+from typing import Dict
 from dotenv import load_dotenv
 
 # Add project root to sys.path for module resolution
@@ -35,7 +35,9 @@ class ServiceManager:
     """Manages Dashboard and API services."""
 
     def __init__(self):
-        self.services: Dict[int, Dict[str, any]] = {}  # pid -> {process: Popen, name: str}
+        self.services: Dict[
+            int, Dict[str, any]
+        ] = {}  # pid -> {process: Popen, name: str}
         self.setup_signal_handlers()
 
     def setup_signal_handlers(self):
@@ -79,9 +81,13 @@ class ServiceManager:
 
         display_url = self._get_display_url("dashboard", host, port)
         # Streamlit's --browser.serverAddress expects a hostname, not a full URL
-        display_hostname_only = display_url.replace("https://", "").replace("http://", "").split(":")[0]
+        display_hostname_only = (
+            display_url.replace("https://", "").replace("http://", "").split(":")[0]
+        )
 
-        logger.info(f"Starting Dashboard (listening on {host}:{port}, accessible at {display_url})...")
+        logger.info(
+            f"Starting Dashboard (listening on {host}:{port}, accessible at {display_url})..."
+        )
 
         cmd = [
             sys.executable,
@@ -89,12 +95,18 @@ class ServiceManager:
             "streamlit",
             "run",
             str(dashboard_path),
-            "--server.port", str(port),
-            "--server.address", host,
-            "--browser.serverAddress", display_hostname_only,  # Indique à Streamlit quelle URL afficher
-            "--server.headless", "true",
-            "--browser.gatherUsageStats", "false",
-            "--logger.level", "error",  # Reduce Streamlit logging verbosity
+            "--server.port",
+            str(port),
+            "--server.address",
+            host,
+            "--browser.serverAddress",
+            display_hostname_only,  # Indique à Streamlit quelle URL afficher
+            "--server.headless",
+            "true",
+            "--browser.gatherUsageStats",
+            "false",
+            "--logger.level",
+            "error",  # Reduce Streamlit logging verbosity
         ]
 
         # Add environment variables for subprocesses
@@ -111,9 +123,9 @@ class ServiceManager:
                 stderr=subprocess.STDOUT,
                 text=True,
                 bufsize=1,
-                env=env
+                env=env,
             )
-            self.services[process.pid] = {"process": process, "name": "DASHBOARD"}            
+            self.services[process.pid] = {"process": process, "name": "DASHBOARD"}
 
             logger.info(f"✓ Dashboard started (PID: {process.pid})")
             logger.info(f"  Access at: {display_url}")
@@ -135,8 +147,8 @@ class ServiceManager:
 
         # Check if FastAPI is installed
         try:
-            import fastapi
-            import uvicorn
+            import fastapi  # noqa: F401
+            import uvicorn  # noqa: F401
         except ImportError:
             logger.error(
                 "FastAPI dependencies not installed. "
@@ -145,22 +157,29 @@ class ServiceManager:
             return None
 
         display_url = self._get_display_url("api", host, port)
-        
+
         # Get log level for Uvicorn from env var
         log_level = os.getenv("LOG_LEVEL", "info").lower()
 
-        logger.info(f"Starting API with {workers} workers (listening on {host}:{port}, accessible at {display_url})...")
+        logger.info(
+            f"Starting API with {workers} workers (listening on {host}:{port}, accessible at {display_url})..."
+        )
 
         cmd = [
             sys.executable,
             "-m",
             "uvicorn",
             "kidsearch.api.server:app",
-            "--host", host,
-            "--port", str(port),
-            "--workers", str(workers),
-            "--log-level", log_level,
-            "--lifespan", "on",  # Gère le lifespan dans le process parent
+            "--host",
+            host,
+            "--port",
+            str(port),
+            "--workers",
+            str(workers),
+            "--log-level",
+            log_level,
+            "--lifespan",
+            "on",  # Gère le lifespan dans le process parent
         ]
 
         # Add environment variables for subprocesses
@@ -177,9 +196,9 @@ class ServiceManager:
                 stderr=subprocess.STDOUT,
                 text=True,
                 bufsize=1,
-                env=env
+                env=env,
             )
-            self.services[process.pid] = {"process": process, "name": "API"}            
+            self.services[process.pid] = {"process": process, "name": "API"}
 
             logger.info(f"✓ API started (PID: {process.pid})")
             logger.info(f"  Swagger UI: {display_url}/api/docs")
@@ -207,9 +226,11 @@ class ServiceManager:
             for pid, info in self.services.items():
                 proc = info["process"]
                 if proc.poll() is not None:
-                    logger.warning(f"[{info['name']}] Process {pid} terminated with code {proc.returncode}")
+                    logger.warning(
+                        f"[{info['name']}] Process {pid} terminated with code {proc.returncode}"
+                    )
                     terminated_pids.append(pid)
-            
+
             for pid in terminated_pids:
                 del self.services[pid]
                 if streams.get(pid):
@@ -225,12 +246,27 @@ class ServiceManager:
                     proc = streams[fd]
                     line = proc.stdout.readline()
                     if line:
-                        service_name = self.services.get(proc.pid, {}).get("name", f"PID:{proc.pid}")
-                        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S,%f')[:-3]
+                        service_name = self.services.get(proc.pid, {}).get(
+                            "name", f"PID:{proc.pid}"
+                        )
+                        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S,%f")[:-3]
                         print(f"{timestamp} - [{service_name}] - {line.rstrip()}")
+
+    def start_scheduler(self):
+        """Start the background crawl scheduler."""
+        try:
+            from kidsearch.scheduler import CrawlScheduler
+
+            self._crawl_scheduler = CrawlScheduler()
+            self._crawl_scheduler.start()
+        except Exception as e:
+            logger.warning(f"Could not start crawl scheduler: {e}")
 
     def stop_all(self):
         """Stop all running processes."""
+        if hasattr(self, "_crawl_scheduler"):
+            self._crawl_scheduler.stop()
+
         if not self.services:
             return
 
@@ -351,6 +387,8 @@ Examples:
     print(banner)
 
     manager = ServiceManager()
+
+    manager.start_scheduler()
 
     # Start requested services
     started_any = False

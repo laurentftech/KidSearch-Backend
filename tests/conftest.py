@@ -1,10 +1,10 @@
 """
 Pytest configuration and fixtures for KidSearch tests
 """
+
 import os
 import pytest
 import asyncio
-from typing import Generator, AsyncGenerator
 from unittest.mock import MagicMock, AsyncMock
 from fastapi.testclient import TestClient
 
@@ -39,16 +39,13 @@ def async_mock_typesense_client():
 
     client = AsyncMock(spec=TypesenseClient)
     client.connect = AsyncMock()
-    client.search = AsyncMock(return_value={
-        "hits": [],
-        "found": 0,
-        "search_time_ms": 10
-    })
+    client.search = AsyncMock(
+        return_value={"hits": [], "found": 0, "search_time_ms": 10}
+    )
     client.index_documents = AsyncMock()
-    client.get_stats = AsyncMock(return_value={
-        "num_documents": 0,
-        "name": "test_index"
-    })
+    client.get_stats = AsyncMock(
+        return_value={"num_documents": 0, "name": "test_index"}
+    )
     return client
 
 
@@ -56,6 +53,7 @@ def async_mock_typesense_client():
 def api_client():
     """FastAPI test client"""
     from kidsearch.api.server import app
+
     return TestClient(app)
 
 
@@ -75,7 +73,7 @@ def sample_search_result():
         lang="fr",
         timestamp=1234567890,
         source=SearchSource.TYPESENSE,
-        score=0.95
+        score=0.95,
     )
 
 
@@ -87,17 +85,19 @@ def sample_search_results(sample_search_result):
     results = [sample_search_result]
 
     for i in range(2, 6):
-        results.append(SearchResult(
-            id=f"test-{i}",
-            title=f"Test Document {i}",
-            url=f"https://example.com/test{i}",
-            excerpt=f"This is test document {i}",
-            site="Example",
-            images=[],
-            lang="fr",
-            source=SearchSource.TYPESENSE,
-            score=0.95 - (i * 0.1)
-        ))
+        results.append(
+            SearchResult(
+                id=f"test-{i}",
+                title=f"Test Document {i}",
+                url=f"https://example.com/test{i}",
+                excerpt=f"This is test document {i}",
+                site="Example",
+                images=[],
+                lang="fr",
+                source=SearchSource.TYPESENSE,
+                score=0.95 - (i * 0.1),
+            )
+        )
 
     return results
 

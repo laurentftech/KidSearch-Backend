@@ -19,10 +19,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 #  Vérification de l'accès
 # =======================
 from dashboard.src.auth import check_authentication, show_user_widget
+
 check_authentication()
 
 # Initialize translator
-if 'lang' not in st.session_state:
+if "lang" not in st.session_state:
     st.session_state.lang = "fr"
 t = get_translator(st.session_state.lang)
 
@@ -45,7 +46,8 @@ else:
     API_BASE_URL = f"https://{API_DISPLAY_HOST}/api"
 
 st.subheader("🚀 Démarrage rapide")
-st.code("""
+st.code(
+    """
 # 1. Créer un fichier .env à la racine du projet
 #    (vous pouvez copier/renommer .env.example)
 
@@ -70,7 +72,9 @@ pip install -r requirements.txt
 
 # 6. Démarrer l'API
 python api.py
-""", language="bash")
+""",
+    language="bash",
+)
 
 st.markdown("---")
 
@@ -100,14 +104,16 @@ endpoints = [
 ]
 
 df_endpoints = pd.DataFrame(endpoints)
-st.dataframe(df_endpoints, width='stretch', hide_index=True)
+st.dataframe(df_endpoints, width="stretch", hide_index=True)
 
 st.markdown("---")
 
 st.subheader("🔗 Liens utiles")
 
 if not API_ENABLED:
-    st.warning("⚠️ L'API est désactivée. Les liens de documentation peuvent ne pas fonctionner.")
+    st.warning(
+        "⚠️ L'API est désactivée. Les liens de documentation peuvent ne pas fonctionner."
+    )
 else:
     st.info(f"L'API est configurée pour tourner sur `{API_BASE_URL}`")
 
@@ -131,4 +137,6 @@ with col2:
         st.button("Accéder à ReDoc", disabled=True)
 
 st.markdown("---")
-st.info("Pour plus de détails sur la configuration et le déploiement, référez-vous au fichier `README.md` du projet.")
+st.info(
+    "Pour plus de détails sur la configuration et le déploiement, référez-vous au fichier `README.md` du projet."
+)
