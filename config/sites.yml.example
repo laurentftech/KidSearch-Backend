@@ -14,6 +14,7 @@ sites:
       delay: 0.5
       max_pages: 200
       depth: 2
+      # ignore_robots: true  # Décommentez si robots.txt bloque le crawler sur ce site
     exclude:
       - "/contact"
       - "/using-the-bbc"

@@ -13,7 +13,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 
+import ssl
+
 import aiohttp
+import certifi
 from pydantic import ValidationError
 
 from ..models import ImageResult, SearchResult, SearchSource
@@ -98,8 +101,9 @@ class CSEClient:
 
     async def _get_session(self) -> aiohttp.ClientSession:
         if self._session is None or self._session.closed:
+            ssl_ctx = ssl.create_default_context(cafile=certifi.where())
             self._session = aiohttp.ClientSession(
-                connector=aiohttp.TCPConnector(limit=20),
+                connector=aiohttp.TCPConnector(limit=20, ssl=ssl_ctx),
                 raise_for_status=False,
                 timeout=aiohttp.ClientTimeout(total=10),
             )

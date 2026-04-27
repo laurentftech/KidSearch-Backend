@@ -1389,9 +1389,16 @@ async def crawl_site_html_async(context: CrawlContext, index):
                     logger.debug(f"   ↪️ Ignoré (extension de fichier): {url}")
                     visited.add(url)
                     continue
-                robot_parser = get_robot_parser(url)
-                if robot_parser and not robot_parser.can_fetch(config.USER_AGENT, url):
-                    continue
+                ignore_robots = context.site.get("ignore_robots", False)
+                if not ignore_robots:
+                    robot_parser = get_robot_parser(url)
+                    if robot_parser and not robot_parser.can_fetch(
+                        config.USER_AGENT, url
+                    ):
+                        logger.warning(
+                            f"   🚫 Bloqué par robots.txt: {url} (ajoutez `ignore_robots: true` dans la config du site pour ignorer)"
+                        )
+                        continue
                 batch.append((url, depth))
                 in_progress.add(url)
             if not batch:

@@ -115,3 +115,6 @@ docker-compose.synology*.yml
 /.env.docker
 /.claude/settings.local.json
 /.env.secrets
+
+# spec-gen analysis artifacts
+.spec-gen/
